@@ -1,0 +1,246 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Stats Display
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# -------------------------------------------------------------------------
+
+import:
+	net.kyori.adventure.text.serializer.gson.GsonComponentSerializer
+	
+options:
+	UPDATE_INTERVAL: 1  # ticks
+	
+	# Rich UI Assets (Resource Pack)
+	# NOTE: Used directly as unicode in strings to avoid option expansion issues
+	# ICON_AP: "\uE000"
+	# ICON_EN: "\uE001"
+	SPACE_NEG_128: "space.-128"
+	SPACE_16: "space.16"
+	
+	# EXP Gauge Settings
+	MAX_POINTS: 1002
+	GAUGE_LEVEL: 129
+	
+	# -------------------------------------------------------------------------
+	# Function: display_radar_update
+	# Description: Updates Top Bossbar Radar
+	# -------------------------------------------------------------------------
+function ui_render_compass(p: player):
+	set {_yaw} to yaw of {_p}
+	set {_yaw} to mod({_yaw}, 360)
+	if {_yaw} < 0:
+		add 360 to {_yaw}
+		
+		# Discrete Direction
+	set {_dir} to "N"
+	if {_yaw} >= 337.5 or {_yaw} < 22.5:
+		set {_dir} to "&c&lN&r"
+	else if {_yaw} >= 22.5 and {_yaw} < 67.5:
+		set {_dir} to "NE"
+	else if {_yaw} >= 67.5 and {_yaw} < 112.5:
+		set {_dir} to "&c&lE&r"
+	else if {_yaw} >= 112.5 and {_yaw} < 157.5:
+		set {_dir} to "SE"
+	else if {_yaw} >= 157.5 and {_yaw} < 202.5:
+		set {_dir} to "&c&lS&r"
+	else if {_yaw} >= 202.5 and {_yaw} < 247.5:
+		set {_dir} to "SW"
+	else if {_yaw} >= 247.5 and {_yaw} < 292.5:
+		set {_dir} to "&c&lW&r"
+	else if {_yaw} >= 292.5 and {_yaw} < 337.5:
+		set {_dir} to "NW"
+		
+	set {_loc} to location of {_p}
+	set {_x} to floor(x-coord of {_loc})
+	set {_y} to floor(y-coord of {_loc})
+	set {_z} to floor(z-coord of {_loc})
+	
+	# Detection (Mockup)
+	set {_radar_status} to "&aNO SIGNAL"
+	loop all entities in radius 50 around {_p}:
+		if loop-entity is not {_p}:
+			if loop-entity is alive:
+				if loop-entity is a monster:
+					set {_radar_status} to "&c⚠ HOSTILE"
+					exit loop
+				else if loop-entity is a player:
+					set {_radar_status} to "&e⚠ UNKNOWN"
+					
+	set {_title} to "&8[&b %{_dir}% &8]  &7POS: %{_x}%, %{_y}%, %{_z}%. &8| &f%{_radar_status}%"
+	
+	# BossBar (SkBee)
+	# Use string interpolation directly in ID to avoid variable errors
+	# if boss bar with id "compass_%{_p}'s uuid%" is not set:
+	# 	create boss bar with id "compass_%{_p}'s uuid%" and title {_title} and color blue and style solid
+	
+	# set title of boss bar with id "compass_%{_p}'s uuid%" to {_title}
+	# set progress of boss bar with id "compass_%{_p}'s uuid%" to 100
+	
+	# if players of boss bar with id "compass_%{_p}'s uuid%" does not contain {_p}:
+	# 	add {_p} to boss bar with id "compass_%{_p}'s uuid%"
+	
+	# -------------------------------------------------------------------------
+	# Function: display_actionbar
+	# Description: Displays Rich Text Actionbar (Split Layout)
+	# -------------------------------------------------------------------------
+function display_actionbar(p: player):
+# AP
+	set {_current_hp} to health of {_p}
+	set {_ap} to floor({_current_hp})
+	
+	# EN
+	set {_en_val} to en_get({_p})
+	set {_en} to floor({_en_val})
+	
+	# Color Logic
+	if stagger_is_active({_p}) is true:
+		set {_en_color} to "&7"
+	else if {-kp::%{_p}'s uuid%::en::ground_ticks} >= 20:
+		set {_en_color} to "&a&l" # Green Bold
+	else:
+		set {_en_color} to "&b"
+		
+		# JSON Segments - Using Hardcoded Unicode Icons
+	set {_json_ap} to "{""text"":""\uE000 &f%{_ap}% ""}"
+	set {_json_en} to "{""text"":"" \uE001 %{_en_color}%%{_en}%""}"
+	
+	# Center Info
+	if {-kp::%{_p}'s uuid%::display::alert_ticks} > 0:
+		set {_center_text} to {-kp::%{_p}'s uuid%::display::alert_message}
+	else:
+		set {_fcs} to fcs_get_status({_p})
+		set {_center_text} to "&7FCS: &f%{_fcs}%"
+	set {_json_center} to "{""text"":""%{_center_text}%""}"
+	
+	# Combine: [Move Left] [AP] [Move Right] [EN] [Move Center] [CenterText]
+	# Combine: [Move Left] [AP] [Move Right] [EN] [Move Center] [CenterText]
+	# Note: We must compose offsets using standard power-of-2 keys (assuming NegativeSpace pack)
+	# Left Shift -200: -128 + -64 + -8
+	# Right Shift +150: +128 + +16 + +4 + +2 (approx +22) -> let's use +128 + +16 + +8 (+152)
+	
+	# Left Block (AP) - Shift Left to position
+	set {_spacer_left} to "{""translate"":""space.-128""}, {""translate"":""space.-64""}, {""translate"":""space.-8""}"
+	
+	# Center -> Right Block (EN) - Shift Right from Center
+	set {_spacer_right} to "{""translate"":""space.128""}, {""translate"":""space.16""}, {""translate"":""space.8""}"
+	
+	# Center Reset / Adjust - from AP to Center? 
+	# Actually, the action bar centers text by default.
+	# To align Left: Start with negative shift.
+	# To align Right: Start with positive shift.
+	# To align Center: Just text.
+	
+	# Correct Logic:
+	# 1. We start at CENTER.
+	# 2. To draw AP (Left): Shift Left (-200), Draw AP, Shift Back (+200? No, cursor moves).
+	#    Actually, standard Actionbar renders sequentially.
+	#    If we shift -200 and draw AP, the cursor is at -200 + Width(AP).
+	#    To draw Center Text, we need to move cursor to ~0.
+	#    So we need specific 'return' spacing or just relies on absolute shifting if font supports it (unlikely).
+	
+	# Simpler Approach for 'Columns':
+	# [ (Shift -200) AP ]  [ (Return to 0 approx) Center ] [ (Shift +200) EN ]
+	# Space return = +200 - Width(AP). Hard to predict width.
+	
+	# Alternative: "Negative Space" often allows 'reversing' the cursor.
+	# Let's try:
+	# 1. Reset (Empty text)
+	# 2. Group 1: Translate -200, AP Text.
+	# 3. Group 2: Translate +200 (or absolute offset if possible? No).
+	
+	# Let's try just placing them with hard spacing relative to each other?
+	# Center is our anchor.
+	# AP is at Center - 200.
+	# EN is at Center + 200.
+	# But we render left-to-right? Or centered? 
+	# Vanilla Actionbar is CENTERED on screen.
+	
+	# So:
+	# [  Offset -200  ] [ AP ] [ Offset to get back to center ] [ Center Text ] ...
+	
+	# Let's try the composite keys first.
+	
+	set {_json} to "[{""text"":""""}, %{_spacer_left}%, %{_json_ap}%, {""translate"":""space.128""}, {""translate"":""space.64""}, %{_json_center}%, %{_spacer_right}%, %{_json_en}%]"
+	
+	# Skript-Reflect Send
+	set {_component} to GsonComponentSerializer.gson().deserialize({_json})
+	{_p}.sendActionBar({_component})
+	
+	# -------------------------------------------------------------------------
+	# Function: display_update_xp_gauge
+	# Description: Reflects EN to XP Bar
+	# -------------------------------------------------------------------------
+function display_update_xp_gauge(p: player):
+	set {_en} to en_get({_p})
+	set {_max_en} to en_get_max({_p})
+	if {_max_en} <= 0:
+		stop
+	set {_ratio} to ({_en} / {_max_en}) * {@MAX_POINTS}
+	set level of {_p} to {@GAUGE_LEVEL}
+	set total experience of {_p} to floor({_ratio})
+	
+	# -------------------------------------------------------------------------
+	# Function: display_alert
+	# -------------------------------------------------------------------------
+function display_alert(p: player, msg: text, duration: number = 40):
+	set {-kp::%{_p}'s uuid%::display::alert_message} to {_msg}
+	set {-kp::%{_p}'s uuid%::display::alert_ticks} to {_duration}
+	send action bar {_msg} to {_p}
+	
+	# -------------------------------------------------------------------------
+	# Main Loop
+	# -------------------------------------------------------------------------
+every {@UPDATE_INTERVAL} ticks:
+	loop all players:
+	# Alert Check
+		if {-kp::%loop-player's uuid%::display::alert_ticks} > 0:
+			remove 2 from {-kp::%loop-player's uuid%::display::alert_ticks}
+			# If urgent alert is active, we might want to override the whole action bar or just the center?
+			# Current logic: display_actionbar handles center text override.
+			display_actionbar(loop-player)
+		else if {-kp::%loop-player's uuid%::display_stats} is not false:
+			display_actionbar(loop-player)
+			
+			# Gauge Update
+		display_update_xp_gauge(loop-player)
+		# ui_render_compass(loop-player)
+		
+		# -------------------------------------------------------------------------
+		# Toggle Command
+		# -------------------------------------------------------------------------
+command /togglestats:
+	trigger:
+		if {-kp::%player's uuid%::display_stats} is not set:
+			set {-kp::%player's uuid%::display_stats} to false
+		if {-kp::%player's uuid%::display_stats} is true:
+			set {-kp::%player's uuid%::display_stats} to false
+			send "&c[Stats] ステータス表示をOFFにしました。" to player
+		else:
+			set {-kp::%player's uuid%::display_stats} to true
+			send "&a[Stats] ステータス表示をONにしました。" to player
+			
+			# -------------------------------------------------------------------------
+			# Visual Effects
+			# -------------------------------------------------------------------------
+			
+function display_effect_damage_glitch(p: player):
+# Visual: Red Flash & Obfuscated Title
+# Usage: Called when taking damage
+	send title "&4&k||||" with subtitle "&c&kSYSTEM ERROR" to {_p} for 0.5 seconds with fadein 0 ticks and fadeout 5 ticks
+	
+	# Sound: Robotic Damage
+	play sound "entity.iron_golem.damage" with volume 0.7 with pitch 0.5 to {_p}
+	play sound "block.end_portal.spawn" with volume 0.2 with pitch 2.0 to {_p}
+	
+function display_effect_stagger_start(p: player):
+# Visual: Nausea & Red Tint (Worldborder warning style if possible, else Title)
+# Usage: Called when stagger triggers
+	send title "&4&l⚠ STAGGER ⚠" with subtitle "&cSYSTEM FAILED - REBOOTING..." to {_p} for 2 seconds with fadein 2 ticks and fadeout 10 ticks
+	
+	# Status Effects
+	apply nausea 1 to {_p} for 3 seconds
+	apply blindness 1 to {_p} for 1 second
+	
+	# Sound: Power Down
+	play sound "block.beacon.deactivate" with volume 1.0 with pitch 0.5 to {_p}
+	play sound "entity.zombie_villager.cure" with volume 0.5 with pitch 0.1 to {_p}

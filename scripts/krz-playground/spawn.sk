@@ -1,0 +1,68 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Playground Spawn
+# Description: ランダムスポーンロジック
+# -------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------
+# Function: pg_random_spawn
+# Description: プレイヤーをプレイグラウンドの安全な位置にテレポート
+# -------------------------------------------------------------------------
+function pg_random_spawn(p: player):
+	set {_uuid} to uuid of {_p}
+	set {_world} to "world"
+	
+	# ワールド存在チェック (簡易)
+	if world {_world} is not set:
+		send "&c[Error] &fPlayground world not found!" to {_p}
+		stop
+		
+		# -------------------------------------------------------------------------
+		# 安全なスポーン地点の探索 (最大10回試行)
+		# -------------------------------------------------------------------------
+	set {_found} to false
+	loop 10 times:
+		set {_x} to random number between -1000 and 1000
+		set {_z} to random number between -1000 and 1000
+		
+		# 最高高度（ブロックがある場所）を取得
+		set {_loc} to highest block at location({_x}, 0, {_z}, world {_world})
+		
+		# 安全チェック: 足元が水やマグマでないか
+		# highest block は地表のブロックそのものを返すため、その下が液体でないか、あるいはそのブロック自体が液体でないか確認
+		set {_block} to block at {_loc}
+		set {_below} to block below {_loc}
+		
+		# 水・マグマ判定 (水上スポーン回避)
+		if {_block} is not water or lava:
+			if {_below} is not water or lava:
+				set {_found} to true
+				stop loop
+				
+				# 最終的に見つからなかった場合のフェイルセーフ (0, 100, 0)
+	if {_found} is false:
+		send "&c[Warning] &fSafe spawn not found. Deploying to fallback." to {_p}
+		set {_loc} to location(0, 100, 0, world {_world})
+		
+		# 調整
+	add 1.5 to y-coordinate of {_loc}
+	
+	# プレイヤー転送
+	teleport {_p} to {_loc}
+	
+	# 開始座標の保存 (帰還距離計算用)
+	set {pg::start_loc::%{_uuid}%} to {_loc}
+	
+	# 落下ダメージ防止 (一時的)
+	set {_p}'s fall distance to 0
+	
+	# -------------------------------------------------------------------------
+	# Command: /pgdeploy (Debug)
+	# Description: デバッグ用強制出撃コマンド
+	# -------------------------------------------------------------------------
+command /pgdeploy:
+	permission: admin.pg
+	trigger:
+		if player's world is "playground":
+			send "&cAlready in playground."
+		else:
+			pg_session_start(player)

@@ -1,0 +1,81 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Playground Backpack
+# Description: 仮想バックパックとオーバーフロー処理
+# -------------------------------------------------------------------------
+
+options:
+	BP_SIZE: 27 # 3行
+	GUI_TITLE: "&8Backpack (Temp Storage)"
+	
+	# -------------------------------------------------------------------------
+	# Command: /backpack
+	# Description: バックパックを開く
+	# -------------------------------------------------------------------------
+command /backpack:
+	trigger:
+		if player's world is not "world":
+			send "&cプレイグラウンドでのみ使用可能です。"
+			stop
+		bp_open(player)
+		
+		# -------------------------------------------------------------------------
+		# Function: bp_open
+		# Description: GUIを開く
+		# -------------------------------------------------------------------------
+function bp_open(p: player):
+	set {_uuid} to uuid of {_p}
+	set {_gui} to a new chest inventory with {@BP_SIZE} rows named {@GUI_TITLE}
+	
+	# アイテムを展開
+	set {_slot} to 0
+	loop {-kp::%{_uuid}%::backpack::*}:
+		set slot {_slot} of {_gui} to loop-value
+		add 1 to {_slot}
+		if {_slot} >= {@BP_SIZE}:
+			stop loop
+			
+	open {_gui} to {_p}
+	play sound "ITEM_ARMOR_EQUIP_LEATHER" with volume 1 with pitch 1 to {_p}
+	
+	# -------------------------------------------------------------------------
+	# Event: Inventory Close (Save)
+	# Description: GUIを閉じた時に保存
+	# -------------------------------------------------------------------------
+on inventory close:
+	if name of event-inventory is {@GUI_TITLE}:
+		set {_uuid} to uuid of player
+		
+		# リストをクリアして再構築
+		delete {-kp::%{_uuid}%::backpack::*}
+		
+		loop {@BP_SIZE} times:
+			set {_slot} to loop-number - 1
+			set {_item} to slot {_slot} of event-inventory
+			if {_item} is set:
+				add {_item} to {-kp::%{_uuid}%::backpack::*}
+				
+		play sound "ITEM_ARMOR_EQUIP_LEATHER" with volume 1 with pitch 0.8 to player
+		
+		# -------------------------------------------------------------------------
+		# Function: bp_add_overflow
+		# Description: インベントリに入らないアイテムをバックパックに追加
+		# Return: boolean (true: 追加成功 / false: 満杯)
+		# -------------------------------------------------------------------------
+function bp_add_overflow(p: player, item: item) :: boolean:
+	set {_uuid} to uuid of {_p}
+	
+	# 容量チェック
+	set {_size} to size of {-kp::%{_uuid}%::backpack::*}
+	if {_size} >= {@BP_SIZE}:
+		return false
+		
+		# 追加
+	add {_item} to {-kp::%{_uuid}%::backpack::*}
+	return true
+	
+	# -------------------------------------------------------------------------
+	# Function: bp_clear
+	# Description: バックパックの中身を全消去（帰還時など）
+	# -------------------------------------------------------------------------
+function bp_clear(p: player):
+	delete {-kp::%{uuid of {_p}}%::backpack::*}

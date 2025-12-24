@@ -1,0 +1,27 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Economy Logs
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# -------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------
+# Function: econ_log
+# Description: Logs an economy transaction
+# -------------------------------------------------------------------------
+function econ_log(p: player, amount: number, reason: text):
+	if {-krz::config::debug_mode} is true:
+		core_log("ECON | %{_p}% | %{_amount}% | %{_reason}%")
+		
+		# TODO: Database logging when DB is configured
+		# execute "INSERT INTO economy_logs (player_uuid, amount, reason, timestamp) VALUES ('%{_p}'s uuid%', %{_amount}%, '%{_reason}%', NOW())"
+		
+		# -------------------------------------------------------------------------
+		# Function: econ_log_transfer
+		# Description: Logs a player-to-player transfer
+		# -------------------------------------------------------------------------
+function econ_log_transfer(sender: player, receiver: player, amount: number):
+	if {-krz::config::debug_mode} is true:
+		core_log("ECON_TRANSFER | %{_sender}% -> %{_receiver}% | %{_amount}%")
+		
+		# TODO: Database logging
+		# execute "INSERT INTO transfer_logs (sender_uuid, receiver_uuid, amount, timestamp) VALUES ('%{_sender}'s uuid%', '%{_receiver}'s uuid%', %{_amount}%, NOW())"

@@ -1,0 +1,184 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Core Init
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# Description: プレイヤー変数とサーバー設定の初期化システム
+# -------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------
+# Function: init_player_vars
+# Description: プレイヤーの全変数を初期値で設定
+# Parameters: p (player) - 初期化対象のプレイヤー
+# -------------------------------------------------------------------------
+function init_player_vars(p: player):
+	set {_uuid} to {_p}'s uuid
+	
+	# 基本情報
+	set {-kp::%{_uuid}%::rank} to "F"
+	set {-kp::%{_uuid}%::rank::exp} to 0
+	set {-kp::%{_uuid}%::coins} to {-krz::config::starting_coins}
+	
+	# ステータス
+	set {-kp::%{_uuid}%::stat::ap} to 100
+	set {-kp::%{_uuid}%::stat::ap::max} to 100
+	set {-kp::%{_uuid}%::stat::en} to 100
+	set {-kp::%{_uuid}%::stat::en::max} to 100
+	set {-kp::%{_uuid}%::stat::atk} to 10
+	set {-kp::%{_uuid}%::stat::def} to 5
+	set {-kp::%{_uuid}%::stat::fcs} to 50
+	
+	# スキルレベル
+	set {-kp::%{_uuid}%::skill::cqc} to 1
+	set {-kp::%{_uuid}%::skill::ballistics} to 1
+	set {-kp::%{_uuid}%::skill::energy} to 1
+	set {-kp::%{_uuid}%::skill::athletics} to 1
+	set {-kp::%{_uuid}%::skill::stealth} to 1
+	set {-kp::%{_uuid}%::skill::medic} to 1
+	set {-kp::%{_uuid}%::skill::crafting} to 1
+	set {-kp::%{_uuid}%::skill::trading} to 1
+	
+	# 装備（初期値はair、アイテムなし）
+	set {-kp::%{_uuid}%::equip::suit} to air
+	set {-kp::%{_uuid}%::equip::main} to air
+	set {-kp::%{_uuid}%::equip::sub} to air
+	set {-kp::%{_uuid}%::equip::acc::1} to air
+	set {-kp::%{_uuid}%::equip::acc::2} to air
+	set {-kp::%{_uuid}%::equip::acc::3} to air
+	set {-kp::%{_uuid}%::equip::acc::4} to air
+	set {-kp::%{_uuid}%::equip::acc::5} to air
+	
+	# 設定
+	set {-kp::%{_uuid}%::settings::pvp} to false
+	set {-kp::%{_uuid}%::settings::chat} to "global"
+	set {-kp::%{_uuid}%::settings::sound} to 100
+	
+	# 戦績
+	set {-kp::%{_uuid}%::record::deploy} to 0
+	set {-kp::%{_uuid}%::record::vanish} to 0
+	set {-kp::%{_uuid}%::record::death} to 0
+	set {-kp::%{_uuid}%::record::kills} to 0
+	set {-kp::%{_uuid}%::record::coins::earned} to 0
+	
+	# 拠点
+	delete {-kp::%{_uuid}%::base::location}
+	set {-kp::%{_uuid}%::base::owned} to false
+	
+	# 初期化フラグ
+	set {-kp::%{_uuid}%::initialized} to true
+	
+	# -------------------------------------------------------------------------
+	# Function: init_server_config
+	# Description: サーバー設定変数を初期化（VariableReference.mdに基づく）
+	# -------------------------------------------------------------------------
+function init_server_config():
+# グローバル設定
+	if {-krz::config::max_rank} is not set:
+		set {-krz::config::max_rank} to "SSS"
+	if {-krz::config::starting_coins} is not set:
+		set {-krz::config::starting_coins} to 1000
+	if {-krz::config::vanish_distance} is not set:
+		set {-krz::config::vanish_distance} to 500
+	if {-krz::config::vanish_time} is not set:
+		set {-krz::config::vanish_time} to 300
+	if {-krz::config::assault_dash_delay} is not set:
+		set {-krz::config::assault_dash_delay} to 3
+		
+		# ワールド情報（環境に応じて設定）
+	if {-krz::world::lobby} is not set:
+		set {-krz::world::lobby} to "world"
+	if {-krz::world::life} is not set:
+		set {-krz::world::life} to "world"
+	if {-krz::world::pg} is not set:
+		set {-krz::world::pg} to "world_nether"
+		
+	core_log("サーバー設定変数を初期化しました")
+	
+	# -------------------------------------------------------------------------
+	# Function: core_debug_log
+	# Description: デバッグモードが有効な場合のみログを出力
+	# Parameters: msg (text) - ログメッセージ
+	# -------------------------------------------------------------------------
+function core_debug_log(msg: text):
+	if {-krz::config::debug_mode} is true:
+		send "&e[DEBUG] %{-krz::config::prefix}% %{_msg}%" to console
+		
+		# -------------------------------------------------------------------------
+		# Event: Server Load
+		# Description: サーバー起動時にサーバー設定変数を初期化
+		# -------------------------------------------------------------------------
+on load:
+	init_server_config()
+	
+	# -------------------------------------------------------------------------
+	# Event: Player Join
+	# Description: 新規プレイヤーの自動初期化
+	# -------------------------------------------------------------------------
+on join:
+	set {_uuid} to player's uuid
+	
+	# 初期化済みフラグをチェック
+	if {-kp::%{_uuid}%::initialized} is not set:
+		init_player_vars(player)
+		core_log("新規プレイヤー %player's name% の変数を初期化しました")
+		core_debug_log("UUID: %{_uuid}%")
+		
+		# -------------------------------------------------------------------------
+		# Command: /krz-debug
+		# Description: デバッグモードの切り替え
+		# Permission: krz.admin
+		# -------------------------------------------------------------------------
+command /krz-debug <text>:
+	permission: krz.admin
+	permission message: &c権限がありません。
+	trigger:
+		if arg-1 is "on":
+			set {-krz::config::debug_mode} to true
+			send "%{-krz::config::prefix}%&aデバッグモードを有効化しました。" to player
+			core_log("デバッグモードが有効化されました (実行者: %player's name%)")
+		else if arg-1 is "off":
+			set {-krz::config::debug_mode} to false
+			send "%{-krz::config::prefix}%&cデバッグモードを無効化しました。" to player
+			core_log("デバッグモードが無効化されました (実行者: %player's name%)")
+		else:
+			send "%{-krz::config::prefix}%&c使用方法: /krz-debug <on|off>" to player
+			
+			# -------------------------------------------------------------------------
+			# Command: /krz-init-player
+			# Description: プレイヤー変数の強制再初期化（デバッグモード時のみ）
+			# Permission: krz.admin
+			# Security: デバッグモードが有効な場合のみ実行可能
+			# -------------------------------------------------------------------------
+command /krz-init-player <player>:
+	permission: krz.admin
+	permission message: &c権限がありません。
+	trigger:
+	# セキュリティチェック: デバッグモードが有効か確認
+		if {-krz::config::debug_mode} is not true:
+			send "%{-krz::config::prefix}%&c&l[ERROR] このコマンドはデバッグモードでのみ使用可能です。" to player
+			send "%{-krz::config::prefix}%&c&l[ERROR] デバッグモードを有効化するには: /krz-debug on" to player
+			stop
+			
+			# プレイヤーが存在するか確認
+		if arg-1 is not set:
+			send "%{-krz::config::prefix}%&c使用方法: /krz-init-player <player>" to player
+			stop
+			
+			# 変数を再初期化
+		init_player_vars(arg-1)
+		
+		send "%{-krz::config::prefix}%&a%arg-1's name% の変数を再初期化しました。" to player
+		send "%{-krz::config::prefix}%&e&l[ADMIN] あなたの変数が再初期化されました。" to arg-1
+		
+		# ウェルカムメッセージを再表示
+		wait 1 tick
+		send "" to arg-1
+		send "&b&l╔═══════════════════════════╗" to arg-1
+		send "&b&l║ &f&lVariable Reset Complete &b&l║" to arg-1
+		send "&b&l╚═══════════════════════════╝" to arg-1
+		send "" to arg-1
+		send "&7あなたのデータがリセットされました。" to arg-1
+		send "&7ランク: &fF" to arg-1
+		send "&7所持金: &e%{-krz::config::starting_coins}%Δc" to arg-1
+		send "" to arg-1
+		
+		core_log("プレイヤー %arg-1's name% の変数が再初期化されました (実行者: %player's name%)")

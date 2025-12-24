@@ -1,0 +1,305 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Combat FCS (Fire Control System) with Smart Aim
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# Description: Smart Aim / Lock-on system with view tracking
+# -------------------------------------------------------------------------
+
+options:
+	FCS_CHECK_INTERVAL: 2
+	
+	# Default values (overridden by equipment)
+	FCS_DEFAULT_DISTANCE: 32
+	FCS_DEFAULT_LOCK_SPEED: 10
+	FCS_DEFAULT_LOCK_MAX: 100
+	
+	# Smart Aim settings
+	FCS_RETICLE_ANGLE: 15
+	FCS_AIM_ASSIST_STRENGTH: 0.15
+	FCS_BREAK_ANGLE: 45
+	
+on load:
+	send "&3[FCS] &fFCS module loaded (Smart Aim enabled)." to console
+	
+on join:
+	wait 5 ticks
+	fcs_init(player)
+	
+	# -------------------------------------------------------------------------
+	# Function: fcs_init
+	# -------------------------------------------------------------------------
+function fcs_init(p: player):
+	delete {-kp::%{_p}'s uuid%::fcs::target}
+	set {-kp::%{_p}'s uuid%::fcs::lock_gauge} to 0
+	set {-kp::%{_p}'s uuid%::fcs::locked} to false
+	set {-kp::%{_p}'s uuid%::fcs::smart_aim} to true
+	# Initialize default stats if not set by equipment
+	if {-kp::%{_p}'s uuid%::fcs::max_distance} is not set:
+		set {-kp::%{_p}'s uuid%::fcs::max_distance} to {@FCS_DEFAULT_DISTANCE}
+	if {-kp::%{_p}'s uuid%::fcs::lock_speed} is not set:
+		set {-kp::%{_p}'s uuid%::fcs::lock_speed} to {@FCS_DEFAULT_LOCK_SPEED}
+	if {-kp::%{_p}'s uuid%::fcs::lock_max} is not set:
+		set {-kp::%{_p}'s uuid%::fcs::lock_max} to {@FCS_DEFAULT_LOCK_MAX}
+	if {-kp::%{_p}'s uuid%::fcs::reticle_angle} is not set:
+		set {-kp::%{_p}'s uuid%::fcs::reticle_angle} to {@FCS_RETICLE_ANGLE}
+	if {-kp::%{_p}'s uuid%::fcs::aim_strength} is not set:
+		set {-kp::%{_p}'s uuid%::fcs::aim_strength} to {@FCS_AIM_ASSIST_STRENGTH}
+		
+		# -------------------------------------------------------------------------
+		# FCS Stat Getters/Setters
+		# -------------------------------------------------------------------------
+function fcs_get_max_distance(p: player) :: number:
+	set {_val} to {-kp::%{_p}'s uuid%::fcs::max_distance}
+	if {_val} is not set:
+		return {@FCS_DEFAULT_DISTANCE}
+	return {_val}
+	
+function fcs_set_max_distance(p: player, val: number):
+	set {-kp::%{_p}'s uuid%::fcs::max_distance} to {_val}
+	
+function fcs_get_lock_speed(p: player) :: number:
+	set {_val} to {-kp::%{_p}'s uuid%::fcs::lock_speed}
+	if {_val} is not set:
+		return {@FCS_DEFAULT_LOCK_SPEED}
+	return {_val}
+	
+function fcs_set_lock_speed(p: player, val: number):
+	set {-kp::%{_p}'s uuid%::fcs::lock_speed} to {_val}
+	
+function fcs_get_lock_max(p: player) :: number:
+	set {_val} to {-kp::%{_p}'s uuid%::fcs::lock_max}
+	if {_val} is not set:
+		return {@FCS_DEFAULT_LOCK_MAX}
+	return {_val}
+	
+function fcs_set_lock_max(p: player, val: number):
+	set {-kp::%{_p}'s uuid%::fcs::lock_max} to {_val}
+	
+function fcs_get_reticle_angle(p: player) :: number:
+	set {_val} to {-kp::%{_p}'s uuid%::fcs::reticle_angle}
+	if {_val} is not set:
+		return {@FCS_RETICLE_ANGLE}
+	return {_val}
+	
+function fcs_set_reticle_angle(p: player, val: number):
+	set {-kp::%{_p}'s uuid%::fcs::reticle_angle} to {_val}
+	
+function fcs_get_aim_strength(p: player) :: number:
+	set {_val} to {-kp::%{_p}'s uuid%::fcs::aim_strength}
+	if {_val} is not set:
+		return {@FCS_AIM_ASSIST_STRENGTH}
+	return {_val}
+	
+function fcs_set_aim_strength(p: player, val: number):
+	set {-kp::%{_p}'s uuid%::fcs::aim_strength} to {_val}
+	
+	# -------------------------------------------------------------------------
+	# FCS State Getters
+	# -------------------------------------------------------------------------
+function fcs_get_target(p: player) :: entity:
+	return {-kp::%{_p}'s uuid%::fcs::target}
+	
+function fcs_get_gauge(p: player) :: number:
+	set {_val} to {-kp::%{_p}'s uuid%::fcs::lock_gauge}
+	if {_val} is not set:
+		return 0
+	return {_val}
+	
+function fcs_is_locked(p: player) :: boolean:
+	if {-kp::%{_p}'s uuid%::fcs::locked} is true:
+		return true
+	return false
+	
+function fcs_get_status(p: player) :: text:
+	if {-kp::%{_p}'s uuid%::fcs::locked} is true:
+		return "&cLOCK"
+	else if {-kp::%{_p}'s uuid%::fcs::target} is set:
+		return "&bLOCKING"
+	else:
+		return "&7READY"
+		
+		# -------------------------------------------------------------------------
+		# Function: fcs_get_angle_to_target
+		# Calculates angle between player view direction and target
+		# -------------------------------------------------------------------------
+function fcs_get_angle_to_target(p: player, target: entity) :: number:
+# Get player's look direction from yaw/pitch
+# Note: Skript trig functions use DEGREES, not radians
+	set {_yaw} to {_p}'s yaw
+	set {_pitch} to {_p}'s pitch
+	
+	# Convert yaw/pitch to direction vector (Skript uses degrees)
+	set {_cos_pitch} to cos({_pitch})
+	set {_dir_x} to sin({_yaw}) * {_cos_pitch} * -1
+	set {_dir_y} to sin({_pitch}) * -1
+	set {_dir_z} to cos({_yaw}) * {_cos_pitch}
+	
+	# Get direction to target
+	set {_to_target} to vector from eye location of {_p} to eye location of {_target}
+	set {_to_target} to normalized {_to_target}
+	
+	# Dot product gives cos(angle)
+	set {_dot} to ({_dir_x} * x of {_to_target}) + ({_dir_y} * y of {_to_target}) + ({_dir_z} * z of {_to_target})
+	
+	if {_dot} > 1:
+		set {_dot} to 1
+	if {_dot} < -1:
+		set {_dot} to -1
+		
+		# acos returns degrees in Skript
+	set {_angle} to acos({_dot})
+	return {_angle}
+	
+	# -------------------------------------------------------------------------
+	# Function: fcs_find_target_in_reticle
+	# Finds the best target within reticle cone
+	# -------------------------------------------------------------------------
+function fcs_find_target_in_reticle(p: player) :: entity:
+	set {_max_dist} to fcs_get_max_distance({_p})
+	set {_reticle_angle} to fcs_get_reticle_angle({_p})
+	set {_best_target} to {_null}
+	set {_best_angle} to {_reticle_angle}
+	
+	loop all living entities in radius {_max_dist} around {_p}:
+		if loop-entity is not {_p}:
+			set {_angle} to fcs_get_angle_to_target({_p}, loop-entity)
+			if {_angle} < {_best_angle}:
+				set {_best_angle} to {_angle}
+				set {_best_target} to loop-entity
+				
+	return {_best_target}
+	
+	# -------------------------------------------------------------------------
+	# Function: fcs_apply_aim_assist
+	# Smoothly rotates player view toward locked target
+	# NOTE: Direct rotation is not reliable in Skript, using force look instead
+	# -------------------------------------------------------------------------
+function fcs_apply_aim_assist(p: player, target: entity):
+	if {-kp::%{_p}'s uuid%::fcs::smart_aim} is not true:
+		stop
+		
+		# For now, just store target for other systems to use
+		# Direct view manipulation requires ProtocolLib packets
+	set {-kp::%{_p}'s uuid%::fcs::aim_target} to {_target}
+	
+	# -------------------------------------------------------------------------
+	# Function: fcs_check_intentional_break
+	# Detects if player is intentionally trying to break lock
+	# -------------------------------------------------------------------------
+function fcs_check_intentional_break(p: player, target: entity) :: boolean:
+	set {_angle} to fcs_get_angle_to_target({_p}, {_target})
+	
+	# If looking too far away, player wants to break lock
+	if {_angle} > {@FCS_BREAK_ANGLE}:
+		return true
+		
+		# Check if target is too far
+	set {_max_dist} to fcs_get_max_distance({_p})
+	set {_dist} to distance between {_p} and {_target}
+	if {_dist} > {_max_dist}:
+		return true
+		
+	return false
+	
+	# -------------------------------------------------------------------------
+	# FCS Update Loop with Smart Aim
+	# -------------------------------------------------------------------------
+every {@FCS_CHECK_INTERVAL} ticks:
+	loop all players:
+		set {_p} to loop-player
+		set {_current_target} to {-kp::%{_p}'s uuid%::fcs::target}
+		set {_lock_speed} to fcs_get_lock_speed({_p})
+		set {_lock_max} to fcs_get_lock_max({_p})
+		set {_is_locked} to fcs_is_locked({_p})
+		
+		# If locked, check for intentional break
+		if {_is_locked} is true:
+			if {_current_target} is set:
+				if {_current_target} is dead:
+				# Target died, reset lock
+					delete {-kp::%{_p}'s uuid%::fcs::target}
+					set {-kp::%{_p}'s uuid%::fcs::lock_gauge} to 0
+					set {-kp::%{_p}'s uuid%::fcs::locked} to false
+				else:
+					set {_should_break} to fcs_check_intentional_break({_p}, {_current_target})
+					if {_should_break} is true:
+					# Player intentionally broke lock
+						delete {-kp::%{_p}'s uuid%::fcs::target}
+						set {-kp::%{_p}'s uuid%::fcs::lock_gauge} to 0
+						set {-kp::%{_p}'s uuid%::fcs::locked} to false
+						play sound "block.note_block.bass" with volume 0.3 with pitch 0.5 to {_p}
+					else:
+					# Apply aim assist to track target
+						fcs_apply_aim_assist({_p}, {_current_target})
+		else:
+		# Not locked, search for target in reticle
+			set {_new_target} to fcs_find_target_in_reticle({_p})
+			
+			if {_new_target} is set:
+				if {_current_target} is {_new_target}:
+				# Same target, increase lock gauge
+					add {_lock_speed} to {-kp::%{_p}'s uuid%::fcs::lock_gauge}
+					if {-kp::%{_p}'s uuid%::fcs::lock_gauge} >= {_lock_max}:
+						set {-kp::%{_p}'s uuid%::fcs::lock_gauge} to {_lock_max}
+						set {-kp::%{_p}'s uuid%::fcs::locked} to true
+				else:
+				# New target, reset gauge
+					set {-kp::%{_p}'s uuid%::fcs::target} to {_new_target}
+					set {-kp::%{_p}'s uuid%::fcs::lock_gauge} to 0
+					set {-kp::%{_p}'s uuid%::fcs::locked} to false
+			else:
+			# No target in reticle
+				delete {-kp::%{_p}'s uuid%::fcs::target}
+				set {-kp::%{_p}'s uuid%::fcs::lock_gauge} to 0
+				set {-kp::%{_p}'s uuid%::fcs::locked} to false
+				
+				# -------------------------------------------------------------------------
+				# Debug Command
+				# -------------------------------------------------------------------------
+command /fcs [<text>]:
+	trigger:
+		if arg-1 is "stats":
+			send "&3[FCS Stats]" to player
+			send "&7Max Distance: &f%fcs_get_max_distance(player)%m" to player
+			send "&7Lock Speed: &f%fcs_get_lock_speed(player)%" to player
+			send "&7Lock Max: &f%fcs_get_lock_max(player)%" to player
+			send "&7Reticle Angle: &f%fcs_get_reticle_angle(player)%°" to player
+			send "&7Aim Strength: &f%fcs_get_aim_strength(player)%" to player
+		else if arg-1 is "toggle":
+			if {-kp::%player's uuid%::fcs::smart_aim} is true:
+				set {-kp::%player's uuid%::fcs::smart_aim} to false
+				send "&3[FCS] &cSmart Aim disabled" to player
+			else:
+				set {-kp::%player's uuid%::fcs::smart_aim} to true
+				send "&3[FCS] &aSmart Aim enabled" to player
+		else if arg-1 is "scan":
+		# Debug: scan for targets
+			set {_max_dist} to fcs_get_max_distance(player)
+			set {_reticle} to fcs_get_reticle_angle(player)
+			send "&3[FCS Scan] &7Distance: %{_max_dist}%m, Reticle: %{_reticle}%°" to player
+			set {_count} to 0
+			loop all living entities in radius {_max_dist} around player:
+				if loop-entity is not player:
+					set {_angle} to fcs_get_angle_to_target(player, loop-entity)
+					set {_dist} to distance between player and loop-entity
+					add 1 to {_count}
+					if {_angle} < {_reticle}:
+						send "&a  [IN] %loop-entity% - Angle: %{_angle}%° Dist: %{_dist}%m" to player
+					else:
+						send "&7  [OUT] %loop-entity% - Angle: %{_angle}%° Dist: %{_dist}%m" to player
+			send "&3[FCS Scan] &fFound %{_count}% entities" to player
+		else if arg-1 is "init":
+			fcs_init(player)
+			send "&3[FCS] &aReinitialized" to player
+		else:
+			set {_target} to fcs_get_target(player)
+			set {_gauge} to fcs_get_gauge(player)
+			set {_max} to fcs_get_lock_max(player)
+			set {_locked} to fcs_is_locked(player)
+			if {_target} is set:
+				set {_dist} to distance between player and {_target}
+				set {_angle} to fcs_get_angle_to_target(player, {_target})
+				send "&3[FCS] &fTarget: %{_target}% | Gauge: %{_gauge}%/%{_max}% | Angle: %{_angle}%° | Locked: %{_locked}%" to player
+			else:
+				send "&3[FCS] &fNo target in reticle" to player
+				

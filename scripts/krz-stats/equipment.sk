@@ -1,0 +1,71 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Stats Equipment
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# -------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------
+# Equipment Change Event
+# Recalculates stats when player changes armor or offhand
+# -------------------------------------------------------------------------
+
+on swap hand items:
+	wait 1 tick
+	equipment_recalc(player)
+	
+on inventory click:
+	if event-inventory is player's inventory:
+		if clicked slot is between 36 and 39:  # Armor slots
+			wait 1 tick
+			equipment_recalc(player)
+			
+			# -------------------------------------------------------------------------
+			# Function: equipment_recalc
+			# Description: Recalculates player stats based on equipped items
+			# -------------------------------------------------------------------------
+function equipment_recalc(p: player):
+# Reset stats to base values
+	stats_init({_p})
+	
+	# Get all equipped items
+	set {_helmet} to {_p}'s helmet
+	set {_chestplate} to {_p}'s chestplate
+	set {_leggings} to {_p}'s leggings
+	set {_boots} to {_p}'s boots
+	set {_mainhand} to {_p}'s tool
+	set {_offhand} to {_p}'s offhand tool
+	
+	# Apply bonuses from each item
+	equipment_apply_bonus({_p}, {_helmet})
+	equipment_apply_bonus({_p}, {_chestplate})
+	equipment_apply_bonus({_p}, {_leggings})
+	equipment_apply_bonus({_p}, {_boots})
+	equipment_apply_bonus({_p}, {_mainhand})
+	equipment_apply_bonus({_p}, {_offhand})
+	
+	# -------------------------------------------------------------------------
+	# Function: equipment_apply_bonus
+	# Description: Applies stat bonuses from an item (via NBT or lore)
+	# -------------------------------------------------------------------------
+function equipment_apply_bonus(p: player, item: item):
+	if {_item} is not set:
+		stop
+		
+		# TODO: Use SkBee to read NBT tags for custom stats
+		# For now, use lore as a simple implementation
+		
+	set {_lore::*} to lore of {_item}
+	loop {_lore::*}:
+	# Parse lore for stat bonuses
+	# Format: "+5 ATK" or "+10 HP"
+		if loop-value contains "+":
+			if loop-value contains "ATK":
+			# Extract number
+				set {_bonus} to 1  # Placeholder
+				stats_add({_p}, "atk", {_bonus})
+			else if loop-value contains "DEF":
+				set {_bonus} to 1  # Placeholder
+				stats_add({_p}, "def", {_bonus})
+			else if loop-value contains "HP":
+				set {_bonus} to 1  # Placeholder
+				stats_add({_p}, "hp", {_bonus})

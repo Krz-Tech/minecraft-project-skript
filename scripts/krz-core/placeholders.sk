@@ -1,0 +1,17 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Core Placeholders
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# -------------------------------------------------------------------------
+
+# Note: Requires PlaceholderAPI and functionality to register custom placeholders via Skript.
+# This feature requires a special addon like 'Skript-PlaceholderAPI' or 'skript-placeholders'.
+# Commenting out until the proper addon is confirmed and installed.
+
+# on placeholderapi placeholder request for the prefix "krz":
+#     if the identifier is "version":
+#         set the result to {-krz::config::version}
+#     else if the identifier is "prefix":
+#         set the result to {-krz::config::prefix}
+
+# Placeholder registration will be implemented once the proper addon is available.

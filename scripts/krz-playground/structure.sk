@@ -1,0 +1,61 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Playground Structure
+# Description: セッション管理とゲームステート制御
+# -------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------
+# Function: pg_session_start
+# Description: プレイヤーのプレイグラウンドセッションを開始
+# -------------------------------------------------------------------------
+function pg_session_start(p: player):
+# セッション変数の初期化
+	set {_uuid} to uuid of {_p}
+	set {-kp::%{_uuid}%::pg::session_active} to true
+	
+	# セッション統計のリセット
+	set {pg::session::loot::%{_uuid}%} to 0
+	set {pg::session::kills::%{_uuid}%} to 0
+	set {pg::session::exp::%{_uuid}%} to 0
+	
+	# 帰還条件のランダム設定 (距離: 300m~1000m, 時間: 10分~20分)
+	set {pg::req_dist::%{_uuid}%} to random integer between 300 and 1000
+	set {pg::req_time::%{_uuid}%} to 600 # 秒 (10分) - 今回は固定
+	
+	# 開始時刻の記録
+	set {pg::start_time::%{_uuid}%} to now
+	
+	# 開始メッセージ
+	send "&b[System] &fプレイグラウンドセッションを開始しました。" to {_p}
+	send "&7目標: スポーン地点から &b%{pg::req_dist::%{_uuid}%}%m &7移動してください。" to {_p}
+	
+	# インベントリ初期化 (固定スロット確保)
+	inv_init({_p})
+	
+	# スポーン処理呼び出し (spawn.sk)
+	pg_random_spawn({_p})
+	
+	# -------------------------------------------------------------------------
+	# Function: pg_session_end
+	# Description: セッション終了処理
+	# -------------------------------------------------------------------------
+function pg_session_end(p: player, success: boolean):
+	set {_uuid} to uuid of {_p}
+	delete {-kp::%{_uuid}%::pg::session_active}
+	
+	# バックパックの中身を消去 (仕様: 帰還時に消滅)
+	bp_clear({_p})
+	
+	if {_success} is true:
+		send "&a[System] &l帰還成功" to {_p}
+		send "&7物資を確保しました。ロビーへ帰還します..." to {_p}
+		# ここに報酬処理 (Loot -> Coins) を今後実装
+	else:
+		send "&c[System] &lセッション失敗" to {_p}
+		send "&7行動不能になりました。" to {_p}
+		# ペナルティ処理
+		
+		# ロビー(メインワールド)へ転送 (モック)
+	teleport {_p} to {loc::lobby}
+	
+	# UIリセット
+	# ui.sk がワールド変更を検知して自動で切り替えるため、ここでは何もしなくて良い

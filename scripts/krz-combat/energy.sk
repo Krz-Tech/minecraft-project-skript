@@ -1,0 +1,144 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Combat Energy System
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# Description: EN (Energy) management for combat actions
+# -------------------------------------------------------------------------
+
+options:
+	PREFIX: "&b[Combat] &f"
+	EN_MAX_DEFAULT: 100
+	
+	# Regen Settings (Managed in 2-tick loop)
+	EN_NORMAL_RATE: 0.4 # per 2 ticks
+	EN_RAPID_RATE: 5    # per 2 ticks
+	EN_RAPID_DELAY: 20  # ticks
+	
+	# -------------------------------------------------------------------------
+	# On Load - Initialize module
+	# -------------------------------------------------------------------------
+on load:
+	send "&b[Combat] &fEnergy module loaded." to console
+	
+	# -------------------------------------------------------------------------
+	# On Join - Initialize player EN
+	# -------------------------------------------------------------------------
+on join:
+	wait 5 ticks
+	en_init(player)
+	
+	# -------------------------------------------------------------------------
+	# Function: en_init
+	# Initializes player's energy values
+	# -------------------------------------------------------------------------
+function en_init(p: player):
+	if {-kp::%{_p}'s uuid%::en::max} is not set:
+		set {-kp::%{_p}'s uuid%::en::max} to {@EN_MAX_DEFAULT}
+	if {-kp::%{_p}'s uuid%::en::current} is not set:
+		set {-kp::%{_p}'s uuid%::en::current} to {-kp::%{_p}'s uuid%::en::max}
+		
+		# -------------------------------------------------------------------------
+		# Function: en_get
+		# Returns current EN value
+		# -------------------------------------------------------------------------
+function en_get(p: player) :: number:
+	if {-kp::%{_p}'s uuid%::en::current} is not set:
+		en_init({_p})
+	return {-kp::%{_p}'s uuid%::en::current}
+	
+	# -------------------------------------------------------------------------
+	# Function: en_get_max
+	# Returns max EN value
+	# -------------------------------------------------------------------------
+function en_get_max(p: player) :: number:
+	if {-kp::%{_p}'s uuid%::en::max} is not set:
+		en_init({_p})
+	return {-kp::%{_p}'s uuid%::en::max}
+	
+	# -------------------------------------------------------------------------
+	# Function: en_set
+	# Sets current EN value (clamped to 0-max)
+	# -------------------------------------------------------------------------
+function en_set(p: player, value: number):
+	set {_max} to en_get_max({_p})
+	if {_value} > {_max}:
+		set {_value} to {_max}
+	if {_value} < 0:
+		set {_value} to 0
+	set {-kp::%{_p}'s uuid%::en::current} to {_value}
+	
+	# -------------------------------------------------------------------------
+	# Function: en_consume
+	# Consumes EN if available, returns true if successful
+	# -------------------------------------------------------------------------
+function en_consume(p: player, amount: number) :: boolean:
+	set {_current} to en_get({_p})
+	if {_current} >= {_amount}:
+		en_set({_p}, {_current} - {_amount})
+		# EN消費表示
+		set {_loc} to location of {_p}
+		set {_neg} to {_amount} * -1
+		display_show_en_change({_loc}, {_neg})
+		return true
+		# EN不足時のフィードバック
+	display_alert({_p}, "&c&lEN不足!", 20)
+	play sound "block.note_block.bass" with volume 0.5 with pitch 0.5 to {_p}
+	return false
+	
+	# -------------------------------------------------------------------------
+	# Function: en_recover
+	# Adds EN (capped at max)
+	# -------------------------------------------------------------------------
+function en_recover(p: player, amount: number):
+	set {_current} to en_get({_p})
+	set {_max} to en_get_max({_p})
+	set {_new} to {_current} + {_amount}
+	if {_new} > {_max}:
+		set {_new} to {_max}
+	en_set({_p}, {_new})
+	
+	# -------------------------------------------------------------------------
+	# EN Recovery Loop
+	# -------------------------------------------------------------------------
+	# -------------------------------------------------------------------------
+	# EN Recovery Loop (Rapid Logic)
+	# -------------------------------------------------------------------------
+every 2 ticks:
+	loop all players:
+		set {_p} to loop-player
+		
+		# 接地タイマー管理
+		if {_p} is on ground:
+			add 2 to {-kp::%{_p}'s uuid%::en::ground_ticks}
+		else:
+			set {-kp::%{_p}'s uuid%::en::ground_ticks} to 0
+			
+			# Skip if player is in stagger state
+		if {-kp::%{_p}'s uuid%::stagger::active} is true:
+			continue
+			
+			# Skip if player is assault dashing (Active consumption)
+		if {-kp::%{_p}'s uuid%::dash::active} is true:
+			set {-kp::%{_p}'s uuid%::en::ground_ticks} to 0 # Reset timer
+			continue
+			
+			# Decide Regen Rate
+			# Decide Regen Rate
+		if {-kp::%{_p}'s uuid%::en::ground_ticks} >= {@EN_RAPID_DELAY}:
+		# Rapid Mode
+			en_recover({_p}, {@EN_RAPID_RATE})
+			# パーティクル演出 (オプション)
+			if mod({-kp::%{_p}'s uuid%::en::ground_ticks}, 10) = 0:
+				play sound "block.amethyst_block.chime" with volume 0.1 with pitch 2 to {_p}
+		else:
+		# Normal Mode
+			en_recover({_p}, {@EN_NORMAL_RATE})
+			
+			# -------------------------------------------------------------------------
+			# Command: /en - Debug EN display
+			# -------------------------------------------------------------------------
+command /en:
+	trigger:
+		set {_current} to en_get(player)
+		set {_max} to en_get_max(player)
+		send "&b[EN] &f%{_current}% / %{_max}%" to player

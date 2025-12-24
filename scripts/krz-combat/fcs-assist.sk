@@ -1,0 +1,138 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Combat FCS Smart Aim Assists
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# Description: Homing projectile and melee step-in assists for FCS
+# Reference: docs/GameSystem/1.2.Combat_SmartAim.md
+# -------------------------------------------------------------------------
+
+options:
+# Homing projectile settings
+	HOMING_STRENGTH: 0.15
+	HOMING_MAX_ANGLE: 30
+	
+	# Melee step-in settings
+	STEP_IN_MIN_DIST: 2
+	STEP_IN_MAX_DIST: 5
+	STEP_IN_STRENGTH: 0.4
+	
+on load:
+	send "&3[FCS Assist] &fSmart Aim assists loaded (Homing + Step-in)." to console
+	
+	# -------------------------------------------------------------------------
+	# Homing Projectile System
+	# -------------------------------------------------------------------------
+on projectile shoot:
+	if shooter is a player:
+		set {_p} to shooter
+		set {_target} to fcs_get_target({_p})
+		set {_locked} to fcs_is_locked({_p})
+		
+		if {_locked} is true:
+			if {_target} is set:
+				if {_target} is alive:
+					set {-fcs::projectile::%uuid of projectile%::target} to {_target}
+					set {-fcs::projectile::%uuid of projectile%::shooter} to {_p}
+					
+					# Homing update loop
+every 1 tick:
+	loop all projectiles:
+		set {_proj} to loop-projectile
+		set {_target} to {-fcs::projectile::%uuid of {_proj}%::target}
+		
+		if {_target} is set:
+			if {_target} is not alive:
+				delete {-fcs::projectile::%uuid of {_proj}%::target}
+			else if {_proj} is on ground:
+				delete {-fcs::projectile::%uuid of {_proj}%::target}
+			else:
+				fcs_apply_homing({_proj}, {_target})
+				
+				# -------------------------------------------------------------------------
+				# Function: fcs_apply_homing
+				# -------------------------------------------------------------------------
+function fcs_apply_homing(proj: projectile, target: entity):
+	set {_proj_loc} to location of {_proj}
+	set {_target_loc} to eye location of {_target}
+	
+	set {_vel} to velocity of {_proj}
+	set {_speed} to vector length of {_vel}
+	
+	set {_to_target} to vector from {_proj_loc} to {_target_loc}
+	set {_to_target} to normalized {_to_target}
+	
+	set {_current_dir} to normalized {_vel}
+	set {_dot} to {_current_dir} dot {_to_target}
+	
+	if {_dot} > 0.5:
+		set {_strength} to {@HOMING_STRENGTH}
+		set {_inv_strength} to 1 - {_strength}
+		
+		set {_new_x} to (x of {_current_dir} * {_inv_strength}) + (x of {_to_target} * {_strength})
+		set {_new_y} to (y of {_current_dir} * {_inv_strength}) + (y of {_to_target} * {_strength})
+		set {_new_z} to (z of {_current_dir} * {_inv_strength}) + (z of {_to_target} * {_strength})
+		
+		set {_new_dir} to vector({_new_x}, {_new_y}, {_new_z})
+		set {_new_dir} to normalized {_new_dir}
+		
+		set {_new_vel_x} to x of {_new_dir} * {_speed}
+		set {_new_vel_y} to y of {_new_dir} * {_speed}
+		set {_new_vel_z} to z of {_new_dir} * {_speed}
+		set {_new_vel} to vector({_new_vel_x}, {_new_vel_y}, {_new_vel_z})
+		
+		set velocity of {_proj} to {_new_vel}
+		
+		# -------------------------------------------------------------------------
+		# Melee Step-in Assist System
+		# -------------------------------------------------------------------------
+on left click:
+	set {_tool_name} to name of type of player's tool
+	if {_tool_name} contains "sword":
+		fcs_try_step_in(player)
+	if {_tool_name} contains "axe":
+		fcs_try_step_in(player)
+		
+		# -------------------------------------------------------------------------
+		# Function: fcs_try_step_in
+		# -------------------------------------------------------------------------
+function fcs_try_step_in(p: player):
+	set {_target} to fcs_get_target({_p})
+	set {_locked} to fcs_is_locked({_p})
+	
+	if {_locked} is not true:
+		stop
+	if {_target} is not set:
+		stop
+	if {_target} is not alive:
+		stop
+		
+	set {_dist} to distance between {_p} and {_target}
+	
+	if {_dist} < {@STEP_IN_MIN_DIST}:
+		stop
+	if {_dist} > {@STEP_IN_MAX_DIST}:
+		stop
+		
+	set {_from} to location of {_p}
+	set {_to} to location of {_target}
+	set {_dir} to vector from {_from} to {_to}
+	set {_dir} to normalized {_dir}
+	
+	set {_strength} to {@STEP_IN_STRENGTH}
+	set {_boost_x} to x of {_dir} * {_strength}
+	set {_boost_y} to (y of {_dir} * {_strength}) + 0.1
+	set {_boost_z} to z of {_dir} * {_strength}
+	set {_boost} to vector({_boost_x}, {_boost_y}, {_boost_z})
+	
+	set {_current_vel} to velocity of {_p}
+	set {_new_x} to x of {_current_vel} + x of {_boost}
+	set {_new_y} to y of {_current_vel} + y of {_boost}
+	set {_new_z} to z of {_current_vel} + z of {_boost}
+	set {_new_vel} to vector({_new_x}, {_new_y}, {_new_z})
+	
+	set velocity of {_p} to {_new_vel}
+	play sound "entity.player.attack.sweep" with volume 0.5 with pitch 1.5 to {_p}
+	
+on projectile hit:
+	delete {-fcs::projectile::%uuid of projectile%::target}
+	delete {-fcs::projectile::%uuid of projectile%::shooter}

@@ -1,0 +1,57 @@
+# -------------------------------------------------------------------------
+# Module: Krz-GUI Profile Menu
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# Description: Player profile and stats display
+# -------------------------------------------------------------------------
+
+options:
+	TITLE: "&b&lプロフィール"
+	
+	# -------------------------------------------------------------------------
+	# Function: open_profile_menu
+	# Description: Opens the profile menu GUI
+	# -------------------------------------------------------------------------
+function open_profile_menu(p: player):
+# Get player data
+	set {_hp} to stats_get({_p}, "hp")
+	set {_def} to stats_get({_p}, "def")
+	set {_atk} to stats_get({_p}, "atk")
+	set {_crit_rate} to stats_get({_p}, "crit_rate")
+	set {_crit_dmg} to stats_get({_p}, "crit_dmg")
+	set {_balance} to econ_get_balance({_p})
+	
+	set {_gui} to chest inventory with 3 rows named "&b&lプロフィール"
+	open {_gui} to {_p}
+	wait 1 tick
+	gui_play_open({_p})
+	
+	# Background
+	loop 27 times:
+		if slot loop-number - 1 of {_p}'s current inventory is air:
+			set slot loop-number - 1 of {_p}'s current inventory to gray stained glass pane named "&r"
+			
+			# Player head (slot 4)
+	set slot 4 of {_p}'s current inventory to player head named "&b%{_p}%" with lore "&7プレイヤー: &f%{_p}%", "&r" and "&7ランク: &bF &8(開発中)"
+	
+	# HP stat (slot 10)
+	set slot 10 of {_p}'s current inventory to red dye named "&cHP" with lore "&7現在のHP" and "&f%{_hp}%"
+	
+	# DEF stat (slot 11)
+	set slot 11 of {_p}'s current inventory to iron chestplate named "&9DEF" with lore "&7防御力" and "&f%{_def}%"
+	
+	# ATK stat (slot 12)
+	set slot 12 of {_p}'s current inventory to iron sword named "&6ATK" with lore "&7攻撃力" and "&f%{_atk}%"
+	
+	# Crit Rate (slot 13)
+	set slot 13 of {_p}'s current inventory to diamond named "&e会心率" with lore "&7会心率" and "&f%{_crit_rate}%%%"
+	
+	# Crit Damage (slot 14)
+	set slot 14 of {_p}'s current inventory to diamond sword named "&e会心ダメージ" with lore "&7会心ダメージ" and "&f%{_crit_dmg}%%%"
+	
+	# Balance (slot 16)
+	set {_balance_formatted} to core_format_money({_balance})
+	set slot 16 of {_p}'s current inventory to gold ingot named "&6残高" with lore "&7所持金" and "&6%{_balance_formatted}%"
+	
+	# Back button (slot 22)
+	set slot 22 of {_p}'s current inventory to gui_create_back_button()

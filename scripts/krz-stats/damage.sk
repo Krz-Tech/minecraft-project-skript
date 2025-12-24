@@ -1,0 +1,77 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Stats Damage System
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# -------------------------------------------------------------------------
+
+options:
+	PREFIX: "&c[Stats] &r"
+	DIRECT_HIT_MULTIPLIER: 1.5  # Damage bonus when target is staggered
+	
+	# -------------------------------------------------------------------------
+	# Custom Damage Calculation
+	# Formula: FinalDamage = (ATK * WeaponMultiplier) * (1 - DEF/100) * (Crit ? CRIT_DMG/100 : 1) * (Stagger ? 1.5 : 1)
+	# -------------------------------------------------------------------------
+	
+on damage:
+	attacker is a player
+	victim is set
+	
+	# Get attacker stats
+	set {_atk} to stats_get(attacker, "atk")
+	set {_crit_rate} to stats_get(attacker, "crit_rate")
+	set {_crit_dmg} to stats_get(attacker, "crit_dmg")
+	
+	# Get victim defense (if player)
+	if victim is a player:
+		set {_def} to stats_get(victim, "def")
+	else:
+		set {_def} to 0
+		
+		
+		# Weapon multiplier and impact (based on item type)
+	set {_weapon} to attacker's tool
+	set {_weapon_name} to name of type of {_weapon}
+	
+	if {_weapon_name} contains "sword":
+		set {_multiplier} to 1.5
+		set {_impact} to 15  # Medium impact
+	else if {_weapon_name} contains "axe":
+		set {_multiplier} to 1.8
+		set {_impact} to 25  # High impact
+	else if {_weapon_name} contains "bow":
+		set {_multiplier} to 1.2
+		set {_impact} to 5  # Low impact
+	else:
+		set {_multiplier} to 1.0
+		set {_impact} to 10  # Default impact
+		
+		# Calculate base damage
+	set {_base_dmg} to {_atk} * {_multiplier}
+	
+	# Apply defense reduction
+	set {_def_reduction} to 1 - ({_def} / 100)
+	if {_def_reduction} < 0.1:
+		set {_def_reduction} to 0.1  # Minimum 10% damage
+	set {_base_dmg} to {_base_dmg} * {_def_reduction}
+	
+	# Critical hit check
+	set {_random} to random integer between 1 and 100
+	if {_random} <= {_crit_rate}:
+		set {_base_dmg} to {_base_dmg} * ({_crit_dmg} / 100)
+		send "%{@PREFIX}%&e&l⚡ CRITICAL HIT!" to attacker
+		play sound "entity.player.attack.crit" with volume 1 and pitch 1 at victim
+		
+		# Direct Hit bonus (if victim is staggered)
+	if victim is a player:
+		if stagger_is_active(victim) is true:
+			set {_base_dmg} to {_base_dmg} * {@DIRECT_HIT_MULTIPLIER}
+			send "%{@PREFIX}%&c&l💥 DIRECT HIT!" to attacker
+			play sound "entity.player.attack.knockback" with volume 1 and pitch 0.5 at victim
+			
+			# Apply stagger impact to victim
+	if victim is a player:
+		stagger_add_impact(victim, {_impact})
+		
+		# Apply the custom damage
+	set damage to {_base_dmg}

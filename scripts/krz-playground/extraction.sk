@@ -1,0 +1,80 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Playground Extraction
+# Description: 帰還ロジックと監視ループ
+# -------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------
+# System: 帰還条件監視ループ
+# Description: 1秒ごとに距離と時間を更新
+# -------------------------------------------------------------------------
+every 1 second:
+	loop all players in world "world":
+		pg_check_extraction(loop-player)
+		
+		# -------------------------------------------------------------------------
+		# Function: pg_check_extraction
+		# Description: プレイヤーの状態をチェックし、UI変数を更新
+		# -------------------------------------------------------------------------
+function pg_check_extraction(p: player):
+	set {_uuid} to uuid of {_p}
+	
+	# セッションアクティブチェック
+	if {-kp::%{_uuid}%::pg::session_active} is not set:
+	# broadcast "[Debug] Session not active for %{_p}%"
+		stop
+		
+	set {_start} to {pg::start_loc::%{_uuid}%}
+	if {_start} is not set:
+		broadcast "[Debug] Start loc not set for %{_p}%"
+		stop
+		
+	set {_curr} to location of {_p}
+	
+	# 1. 距離計算
+	set {_dist_moved} to distance between {_start} and {_curr}
+	set {_req_dist} to {pg::req_dist::%{_uuid}%}
+	
+	if {_req_dist} is not set:
+		broadcast "[Debug] Req dist not set for %{_p}%"
+		set {_req_dist} to 500
+		
+	set {_rem_dist} to {_req_dist} - {_dist_moved}
+	
+	# broadcast "[Debug] %{_p}%: Req=%{_req_dist}% Moved=%{_dist_moved}% Rem=%{_rem_dist}%"
+	
+	# 0未満は0に丸める
+	if {_rem_dist} < 0:
+		set {_rem_dist} to 0
+		
+		# UI変数更新 (BossBar用)
+	set {pg::dist_to_exit::%{_uuid}%} to floor({_rem_dist})
+	
+	# 2. 時間計算
+	set {_elapsed} to difference between {pg::start_time::%{_uuid}%} and now
+	# Skriptでの時間計算は単純化 (残り秒数など)
+	# 今回は単純に経過時間を表示などの拡張が可能だが、まずは距離優先
+	set {pg::time_limit::%{_uuid}%} to "Active" # 仮実装
+	
+	# 帰還可能通知 (ActionBarなどでも良いが、BossBarで赤くなるのでここでは省略)
+	
+	# -------------------------------------------------------------------------
+	# Command: /vanish (Extraction)
+	# Description: 帰還コマンド
+	# -------------------------------------------------------------------------
+command /vanish:
+	trigger:
+		if player's world is not "world":
+			send "&cプレイグラウンドにいません。"
+			stop
+			
+		set {_uuid} to uuid of player
+		set {_dist_rem} to {pg::dist_to_exit::%{_uuid}%}
+		
+		# 帰還条件チェック
+		if {_dist_rem} <= 0:
+		# 帰還成功
+			send "&a帰還プロセスを開始します..."
+			wait 3 seconds # 演出用ウェイト
+			pg_session_end(player, true)
+		else:
+			send "&c帰還ポイントに到達していません！ &7(残り %{_dist_rem}%m)"

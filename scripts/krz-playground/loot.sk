@@ -1,0 +1,15 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Playground Loot
+# Description: アイテム定義と換金ロジック (Mock)
+# -------------------------------------------------------------------------
+
+# 今後の実装予定:
+# 1. Non-Scopeアイテムの定義 (NBTタグによる識別)
+# 2. 帰還時のインベントリスキャン関数
+# 3. 換金処理
+
+function pg_process_loot(p: player):
+# Mock: 全アイテムをスキャンして通知するだけ
+	send "&7[System] Scanning inventory for contraband..." to {_p}
+	wait 1 second
+	send "&a[System] Loot secured: 0 items processed." to {_p}

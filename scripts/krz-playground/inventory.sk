@@ -1,0 +1,316 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Playground Inventory (Unified Resources)
+# Description: 資源アイテムの統一と固定スロット管理
+# -------------------------------------------------------------------------
+
+options:
+	SLOT_LOG: 9
+	SLOT_PLANK: 10
+	SLOT_STONE: 11
+	SLOT_FUEL: 12
+	SLOT_STICK: 13
+	SLOT_FOOD: 14
+	SLOT_AMMO: 15
+	SLOT_SOIL: 16
+	
+	NAME_LOG: "&6Unified Log"
+	NAME_PLANK: "&6Unified Plank"
+	NAME_STONE: "&6Unified Stone"
+	NAME_FUEL: "&6Unified Fuel"
+	NAME_STICK: "&6Unified Stick"
+	NAME_FOOD: "&6Unified Ration"
+	NAME_AMMO: "&6Unified Arrow"
+	NAME_SOIL: "&6Unified Soil"
+	
+	# -------------------------------------------------------------------------
+	# Function: inv_get_unified_item
+	# -------------------------------------------------------------------------
+function inv_get_unified_item(type: text) :: item:
+	set {_i} to air
+	if {_type} is "log":
+		set {_i} to oak log named {@NAME_LOG}
+	else if {_type} is "plank":
+		set {_i} to oak planks named {@NAME_PLANK}
+	else if {_type} is "stone":
+		set {_i} to cobblestone named {@NAME_STONE}
+	else if {_type} is "fuel":
+		set {_i} to coal named {@NAME_FUEL}
+	else if {_type} is "stick":
+		set {_i} to stick named {@NAME_STICK}
+	else if {_type} is "food":
+		set {_i} to cooked beef named {@NAME_FOOD}
+	else if {_type} is "ammo":
+		set {_i} to arrow named {@NAME_AMMO}
+	else if {_type} is "soil":
+		set {_i} to dirt named {@NAME_SOIL}
+		
+		# Safe NBT setting
+	set string tag "UnifiedType" of nbt of {_i} to {_type}
+	return {_i}
+	
+	# -------------------------------------------------------------------------
+	# Helper: inv_add_unified_resource
+	# Description: 指定したタイプの資源をインベントリに追加
+	# -------------------------------------------------------------------------
+function inv_add_unified_resource(p: player, type: text, amount: integer):
+	set {_slot} to -1
+	if {_type} is "log":
+		set {_slot} to {@SLOT_LOG}
+	else if {_type} is "plank":
+		set {_slot} to {@SLOT_PLANK}
+	else if {_type} is "stone":
+		set {_slot} to {@SLOT_STONE}
+	else if {_type} is "fuel":
+		set {_slot} to {@SLOT_FUEL}
+	else if {_type} is "stick":
+		set {_slot} to {@SLOT_STICK}
+	else if {_type} is "food":
+		set {_slot} to {@SLOT_FOOD}
+	else if {_type} is "ammo":
+		set {_slot} to {@SLOT_AMMO}
+	else if {_type} is "soil":
+		set {_slot} to {@SLOT_SOIL}
+		
+	if {_slot} is -1:
+		stop
+		
+	set {_current_item} to slot {_slot} of {_p}'s inventory
+	
+	# インベントリ操作
+	if {_current_item} is set:
+		set {_current_amount} to item amount of {_current_item}
+		set {_new_amount} to {_current_amount} + {_amount}
+		if {_new_amount} > 64:
+			set {_new_amount} to 64
+		set item amount of slot {_slot} of {_p}'s inventory to {_new_amount}
+	else:
+		set {_u_item} to inv_get_unified_item({_type})
+		set item amount of {_u_item} to {_amount}
+		set slot {_slot} of {_p}'s inventory to {_u_item}
+		
+	play sound "ENTITY_ITEM_PICKUP" with volume 0.5 with pitch 1.5 to {_p}
+	
+	# -------------------------------------------------------------------------
+	# Event: Mine (Resource Gathering Logic)
+	# -------------------------------------------------------------------------
+on mine:
+	if player's world is not "world":
+		stop
+		
+	set {_loc} to event-location
+	set {_block} to event-block
+	set {_type} to ""
+	set {_type_s} to "%type of {_block}%"
+	
+	# ブロック判定
+	if {_type_s} contains "log":
+		set {_type} to "log"
+	else if {_type_s} contains "plank":
+		set {_type} to "plank"
+	else if {_type_s} contains "stone" or "cobblestone" or "deepslate" or "andesite" or "diorite" or "granite" or "tuff" or "ore":
+	# 鉱石もストーン扱い (ただし石炭等は別)
+		if {_type_s} contains "coal" or "charcoal":
+			set {_type} to "fuel"
+		else:
+		# 砂岩なども含む？
+			set {_type} to "stone"
+	else if {_type_s} contains "sand" or "dirt" or "grass" or "podzol" or "mud" or "clay" or "soil" or "mycelium" or "path" or "gravel":
+		set {_type} to "soil"
+	else if {_type_s} contains "leaves":
+	# 葉っぱは棒になる確率
+		if chance of 10%:
+			set {_type} to "stick"
+			
+	if {_type} is not "":
+		cancel drops
+		inv_add_unified_resource(player, {_type}, 1)
+		
+		# -------------------------------------------------------------------------
+		# Event: Death (Mob Drops -> Food)
+		# Description: 特定の食料動物のみ対象 (Performance & Logic)
+		# -------------------------------------------------------------------------
+on death of cow or pig or chicken or sheep or rabbit or cod or salmon:
+	if attacker is a player:
+		if attacker's world is "world":
+			set {_type} to "food"
+			# ドロップを消して直接付与
+			clear drops
+			inv_add_unified_resource(attacker, {_type}, 1)
+			
+			# -------------------------------------------------------------------------
+			# Event: Pickup (Trash / Backpack Overflow Logic)
+			# -------------------------------------------------------------------------
+on pickup:
+	if player's world is not "world":
+		stop
+		
+	set {_item} to event-item
+	
+	# Unified Itemなら許可 (Resource Logicと同じ)
+	if name of {_item} contains "Unified":
+		stop
+		
+		# 通常アイテム -> バックパックへ
+		# インベントリに入りきるならVanilla処理 (stop)
+	if player can hold {_item}:
+		stop
+		
+		# 入りきらないならバックパックへ
+	cancel event
+	set {_result} to bp_add_overflow(player, {_item})
+	if {_result} is true:
+		delete event-entity
+		display_alert(player, "&7Backpack &a+ %{_item}%", 40)
+		# Else: バックパックも一杯なら拾わない (stop)
+		
+		# -------------------------------------------------------------------------
+		# Fixed Slot Initialization & Protection
+		# -------------------------------------------------------------------------
+function inv_init(p: player):
+	set slot {@SLOT_LOG} of {_p}'s inventory to inv_get_unified_item("log")
+	set slot {@SLOT_PLANK} of {_p}'s inventory to inv_get_unified_item("plank")
+	set slot {@SLOT_STONE} of {_p}'s inventory to inv_get_unified_item("stone")
+	set slot {@SLOT_FUEL} of {_p}'s inventory to inv_get_unified_item("fuel")
+	set slot {@SLOT_STICK} of {_p}'s inventory to inv_get_unified_item("stick")
+	set slot {@SLOT_FOOD} of {_p}'s inventory to inv_get_unified_item("food")
+	set slot {@SLOT_AMMO} of {_p}'s inventory to inv_get_unified_item("ammo")
+	set slot {@SLOT_SOIL} of {_p}'s inventory to inv_get_unified_item("soil")
+	
+	# -------------------------------------------------------------------------
+	# Event: Drop (Return to Storage)
+	# Description: 統一アイテムをドロップすると、自動で資源スロットに戻る
+	# -------------------------------------------------------------------------
+on drop:
+	if player's world is not "world":
+		stop
+		
+	set {_item} to event-item
+	set {_name} to name of {_item}
+	if {_name} does not contain "Unified":
+		stop
+		
+		# ドロップを許可するが、出現したエンティティを即削除する
+		# (cancel event + remove item だと不安定なため)
+	delete event-entity
+	
+	# インベントリへの加算処理
+	set {_nbt} to nbt compound of {_item}
+	set {_nbt_type} to string tag "UnifiedType" of {_nbt}
+	
+	# NBTがない場合のフォールバック（名前判定）
+	if {_nbt_type} is not set:
+		if {_name} contains "Log":
+			set {_nbt_type} to "log"
+		else if {_name} contains "Plank":
+			set {_nbt_type} to "plank"
+		else if {_name} contains "Stone":
+			set {_nbt_type} to "stone"
+		else if {_name} contains "Fuel":
+			set {_nbt_type} to "fuel"
+		else if {_name} contains "Stick":
+			set {_nbt_type} to "stick"
+		else if {_name} contains "Ration":
+			set {_nbt_type} to "food"
+		else if {_name} contains "Arrow":
+			set {_nbt_type} to "ammo"
+		else if {_name} contains "Soil":
+			set {_nbt_type} to "soil"
+			
+	if {_nbt_type} is set:
+		set {_amount} to item amount of {_item}
+		
+		# 資源スロットへ戻す
+		inv_add_unified_resource(player, {_nbt_type}, {_amount})
+		display_alert(player, "&7Returned %{_amount}% %{_name}%&7 to storage.", 40)
+		
+		# -------------------------------------------------------------------------
+		# Event: Inventory Click (Interaction Logic)
+		# Description: 固定スロットからの引き出し (1個/16個)
+		# -------------------------------------------------------------------------
+on inventory click:
+	if player's world is not "world":
+		stop
+		
+		# ---------------------------------------------------------------------
+		# Case 1: Click Outside (Cursor Drop prevention)
+		# ---------------------------------------------------------------------
+	if index of event-slot < 0:
+		if cursor slot of player is not air:
+			if name of cursor slot of player contains "Unified":
+				cancel event
+				# カーソルのアイテムを戻す処理
+				set {_cursor_item} to cursor slot of player
+				set {_nbt} to nbt compound of {_cursor_item}
+				set {_nbt_type} to string tag "UnifiedType" of {_nbt}
+				if {_nbt_type} is set:
+					set {_amount} to item amount of {_cursor_item}
+					set cursor slot of player to air
+					inv_add_unified_resource(player, {_nbt_type}, {_amount})
+					display_alert(player, "&7Returned %{_amount}% %name of {_cursor_item}%&7 to storage.", 40)
+		stop
+		
+		# ---------------------------------------------------------------------
+		# Case 2: Fixed Slots (9-16) Interaction
+		# ---------------------------------------------------------------------
+	set {_s} to index of event-slot
+	if {_s} >= 9:
+		if {_s} <= 16:
+			cancel event
+			set {_clicked_item} to event-item
+			
+			# アイテムがない場合は無視
+			if {_clicked_item} is air:
+				stop
+				
+			set {_current_amount} to item amount of {_clicked_item}
+			set {_take_amount} to 0
+			
+			# クリックタイプ判定
+			# Skriptの click type は "left mouse button", "shift left mouse button" 等
+			if click type is left mouse button:
+			# 通常クリック: 1個
+				set {_take_amount} to 1
+				
+			if click type is left mouse button with shift:
+			# シフトクリック: 16個
+				set {_take_amount} to 16
+				
+			if {_take_amount} is 0:
+				stop
+				
+				# 最低1個は残すチェック
+			if {_current_amount} - {_take_amount} < 1:
+				display_alert(player, "&cCannot take last item (Placeholder).", 40)
+				play sound "BLOCK_NOTE_BLOCK_BASS" with volume 0.5 to player
+				stop
+				
+				# 引き出し処理
+				
+				# 通常クリック (Cursor操作)
+			if click type is left mouse button:
+				if cursor slot of player is not air:
+					stop # 手に持っている場合は無視
+					
+					# スロット減算
+				set item amount of slot {_s} of player's inventory to {_current_amount} - {_take_amount}
+				
+				# カーソルに付与
+				set {_give_item} to {_clicked_item}
+				set item amount of {_give_item} to {_take_amount}
+				set cursor slot of player to {_give_item}
+				play sound "UI_BUTTON_CLICK" with volume 0.5 to player
+				
+				# シフトクリック (Give操作)
+			if click type is left mouse button with shift:
+			# プレイヤーの空きスロットを探す
+				if player can hold {_take_amount} of {_clicked_item}:
+				# スロット減算
+					set item amount of slot {_s} of player's inventory to {_current_amount} - {_take_amount}
+					
+					# 付与
+					set {_give_item} to {_clicked_item}
+					set item amount of {_give_item} to {_take_amount}
+					give {_give_item} to player
+					play sound "UI_BUTTON_CLICK" with volume 0.5 to player
+				else:
+					display_alert(player, "&cInventory full.", 40)

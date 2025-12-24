@@ -1,0 +1,60 @@
+# -------------------------------------------------------------------------
+# Module: Krz-GUI Main Menu
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# Description: Main unified menu system
+# -------------------------------------------------------------------------
+
+options:
+	TITLE: "&b&lメインメニュー"
+	SIZE: 54
+	
+	# -------------------------------------------------------------------------
+	# Command: /menu
+	# -------------------------------------------------------------------------
+command /menu:
+	trigger:
+		open_main_menu(player)
+		
+		# -------------------------------------------------------------------------
+		# Event: Right click with stick
+		# -------------------------------------------------------------------------
+on right click with stick:
+	open_main_menu(player)
+	cancel event
+	
+	# -------------------------------------------------------------------------
+	# Function: open_main_menu
+	# Description: Opens the main menu GUI
+	# -------------------------------------------------------------------------
+function open_main_menu(p: player):
+	set {_gui} to chest inventory with 6 rows named "&b&lメインメニュー"
+	open {_gui} to {_p}
+	wait 1 tick
+	gui_play_open({_p})
+	
+	# Background fill (gray stained glass pane)
+	loop 54 times:
+		if slot loop-number - 1 of {_p}'s current inventory is air:
+			set slot loop-number - 1 of {_p}'s current inventory to gray stained glass pane named "&r"
+			
+			# Profile button (slot 11)
+	set slot 11 of {_p}'s current inventory to player head named "&bプロフィール" with lore "&7ステータス・ランク・スキルを確認", "&r" and "&8▶ &fクリックで開く"
+	
+	# Equipment (slot 13) - Coming soon
+	set slot 13 of {_p}'s current inventory to gui_create_coming_soon("装備管理")
+	
+	# Playground (slot 15) - Coming soon
+	set slot 15 of {_p}'s current inventory to gui_create_coming_soon("プレイグラウンド")
+	
+	# Base (slot 29) - Coming soon
+	set slot 29 of {_p}'s current inventory to gui_create_coming_soon("拠点")
+	
+	# Economy button (slot 31)
+	set slot 31 of {_p}'s current inventory to gold ingot named "&6経済" with lore "&7残高・取引履歴を確認", "&r" and "&8▶ &fクリックで開く"
+	
+	# Settings (slot 33) - Coming soon
+	set slot 33 of {_p}'s current inventory to gui_create_coming_soon("設定")
+	
+	# Close button (slot 49)
+	set slot 49 of {_p}'s current inventory to gui_create_close_button()

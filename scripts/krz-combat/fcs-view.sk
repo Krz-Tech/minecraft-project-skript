@@ -1,0 +1,70 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Combat FCS View Tracking (Paper API)
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# Description: Smooth view tracking using Paper API's lookAt method
+# Status: DISABLED - Commented out for future use
+# Target: Paper 1.21.4
+# -------------------------------------------------------------------------
+
+# import:
+# 	io.papermc.paper.entity.LookAnchor
+
+on load:
+	send "&3[FCS View] &7FCS View Tracking module loaded (DISABLED)." to console
+	
+	# -------------------------------------------------------------------------
+	# View Tracking Update Loop - DISABLED
+	# Uncomment to enable view tracking
+	# -------------------------------------------------------------------------
+	# every 1 tick:
+	# 	loop all players:
+	# 		set {_p} to loop-player
+	# 		
+	# 		# Only track if locked and smart aim is enabled
+	# 		if {-kp::%{_p}'s uuid%::fcs::locked} is not true:
+	# 			continue
+	# 		if {-kp::%{_p}'s uuid%::fcs::smart_aim} is not true:
+	# 			continue
+	# 		
+	# 		set {_target} to {-kp::%{_p}'s uuid%::fcs::target}
+	# 		if {_target} is not set:
+	# 			continue
+	# 		if {_target} is dead:
+	# 			continue
+	# 		
+	# 		# Get aim strength
+	# 		set {_strength} to {-kp::%{_p}'s uuid%::fcs::aim_strength}
+	# 		if {_strength} is not set:
+	# 			set {_strength} to 0.15
+	# 		
+	# 		# Apply smooth look at
+	# 		fcs_smooth_look({_p}, {_target}, {_strength})
+	
+	# -------------------------------------------------------------------------
+	# Function: fcs_smooth_look - DISABLED
+	# Interpolates look position between current and target
+	# -------------------------------------------------------------------------
+	# function fcs_smooth_look(p: player, target: entity, strength: number):
+	# 	set {_eye} to eye location of {_p}
+	# 	set {_target_eye} to eye location of {_target}
+	# 	
+	# 	# Get current look direction from player's actual rotation
+	# 	set {_yaw} to {_p}'s yaw
+	# 	set {_pitch} to {_p}'s pitch
+	# 	
+	# 	# Calculate current look point (10 blocks ahead)
+	# 	set {_look_dist} to 10
+	# 	set {_cos_pitch} to cos({_pitch})
+	# 	set {_current_look_x} to x-coord of {_eye} + (sin({_yaw}) * {_cos_pitch} * {_look_dist} * -1)
+	# 	set {_current_look_y} to y-coord of {_eye} + (sin({_pitch}) * {_look_dist} * -1)
+	# 	set {_current_look_z} to z-coord of {_eye} + (cos({_yaw}) * {_cos_pitch} * {_look_dist})
+	# 	
+	# 	# Interpolate between current look point and target
+	# 	set {_inv_strength} to 1 - {_strength}
+	# 	set {_new_x} to ({_current_look_x} * {_inv_strength}) + (x-coord of {_target_eye} * {_strength})
+	# 	set {_new_y} to ({_current_look_y} * {_inv_strength}) + (y-coord of {_target_eye} * {_strength})
+	# 	set {_new_z} to ({_current_look_z} * {_inv_strength}) + (z-coord of {_target_eye} * {_strength})
+	# 	
+	# 	# Use Paper API lookAt to look at interpolated point
+	# 	{_p}.lookAt({_new_x}, {_new_y}, {_new_z}, LookAnchor.EYES)

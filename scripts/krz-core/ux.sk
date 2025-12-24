@@ -1,0 +1,285 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Core UX
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# Description: UXエフェクトとサウンドシステム（UXガイドライン準拠）
+# -------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------
+# Function: fx_boot_sequence
+# Description: ログイン時のブートシーケンスアニメーション
+# Parameters: p (player) - 対象プレイヤー
+# -------------------------------------------------------------------------
+function fx_boot_sequence(p: player):
+# ========== 移動・視点制限開始 ==========
+# 元のゲームモードと位置・向きを保存
+	set {_original_gamemode} to gamemode of {_p}
+	set {_original_loc} to location of {_p}
+	set {_uuid} to uuid of {_p}
+	
+	# スペクテイターモードに変更（完全な移動制限）
+	set gamemode of {_p} to spectator
+	
+	# 位置・向き固定フラグを有効化（状態管理）
+	set {-sys::boot::%{_uuid}%::freeze} to true
+	
+	# 盲目付与（画面暗転、10秒に延長）
+	apply blindness 10 to {_p}
+	
+	# ========== Phase 1: システムチェック（タイプアニメーション） ==========
+	wait 3 ticks
+	send title "" with subtitle "&8S" to {_p} for 10 seconds
+	wait 2 tick
+	send title "" with subtitle "&8SY" to {_p} for 10 seconds
+	wait 2 tick
+	send title "" with subtitle "&8SYS" to {_p} for 10 seconds
+	wait 2 tick
+	send title "" with subtitle "&8SYST" to {_p} for 10 seconds
+	wait 2 tick
+	send title "" with subtitle "&8SYSTE" to {_p} for 10 seconds
+	wait 2 tick
+	send title "" with subtitle "&8SYSTEM" to {_p} for 10 seconds
+	wait 2 tick
+	send title "" with subtitle "&8SYSTEM " to {_p} for 10 seconds
+	wait 2 tick
+	send title "" with subtitle "&8SYSTEM C" to {_p} for 10 seconds
+	wait 2 tick
+	send title "" with subtitle "&8SYSTEM CH" to {_p} for 10 seconds
+	wait 2 tick
+	send title "" with subtitle "&8SYSTEM CHE" to {_p} for 10 seconds
+	wait 2 tick
+	send title "" with subtitle "&8SYSTEM CHEC" to {_p} for 10 seconds
+	wait 2 tick
+	send title "" with subtitle "&8SYSTEM CHECK" to {_p} for 10 seconds
+	wait 8 ticks
+	
+	# Core Unit
+	send title "" with subtitle "&8> &7Core Unit &a[OK]" to {_p} for 10 seconds
+	wait 8 ticks
+	
+	# Generator
+	send title "" with subtitle "&8> &7Generator &a[OK]" to {_p} for 10 seconds
+	wait 8 ticks
+	
+	# FCS Module
+	send title "" with subtitle "&8> &7FCS Module &a[OK]" to {_p} for 10 seconds
+	wait 8 ticks
+	
+	# Booster
+	send title "" with subtitle "&8> &7Booster &a[OK]" to {_p} for 10 seconds
+	wait 8 ticks
+	
+	# Arms Unit
+	send title "" with subtitle "&8> &7Arms Unit &a[OK]" to {_p} for 10 seconds
+	wait 10 ticks
+	
+	# ========== Phase 2: OS起動（タイプアニメーション） ==========
+	send title "" with subtitle "&f>" to {_p} for 10 seconds
+	wait 3 ticks
+	send title "" with subtitle "&f> B" to {_p} for 10 seconds
+	wait 2 ticks
+	send title "" with subtitle "&f> BO" to {_p} for 10 seconds
+	wait 2 ticks
+	send title "" with subtitle "&f> BOO" to {_p} for 10 seconds
+	wait 2 ticks
+	send title "" with subtitle "&f> BOOT" to {_p} for 10 seconds
+	wait 5 ticks
+	send title "" with subtitle "&a> BOOT &7Loading OS..." to {_p} for 10 seconds
+	wait 15 ticks
+	
+	# ========== Phase 3: SYNC起動（タイプアニメーション） ==========
+	send title "" with subtitle "&a> S" to {_p} for 10 seconds
+	wait 2 ticks
+	send title "" with subtitle "&a> SY" to {_p} for 10 seconds
+	wait 2 ticks
+	send title "" with subtitle "&a> SYN" to {_p} for 10 seconds
+	wait 2 ticks
+	send title "" with subtitle "&a> SYNC" to {_p} for 10 seconds
+	wait 5 ticks
+	send title "" with subtitle "&a> SYNC &7接続試行中..." to {_p} for 10 seconds
+	wait 15 ticks
+	send title "" with subtitle "&b> SYNC ONLINE &7Status: &aOperational" to {_p} for 10 seconds
+	wait 20 ticks
+	
+	# ========== Phase 4: 起動完了（メインタイトル使用） ==========
+	send title "&b&lTECH::PLAYGROUND" with subtitle "&7アセンブリ完了。オペレーター、接続確立。" to {_p} for 3 seconds
+	
+	# ロード完了演出
+	wait 15 ticks
+	remove blindness from {_p}
+	
+	# パーティクル（円状展開）
+	loop 36 times:
+		set {_angle} to (loop-number - 1) * 10
+		set {_x} to 1.5 * cos({_angle})
+		set {_z} to 1.5 * sin({_angle})
+		set {_loc} to location of {_p}
+		add {_x} to x-coord of {_loc}
+		add 0.5 to y-coord of {_loc}
+		add {_z} to z-coord of {_loc}
+		draw 1 of end_rod at {_loc}
+		
+		# コンポジットサウンド（ログイン）
+	sfx_login({_p})
+	
+	# ========== 移動・視点制限解除 ==========
+	# 位置・向き固定フラグを無効化
+	delete {-sys::boot::%{_uuid}%::freeze}
+	
+	# 元のゲームモードに戻す
+	set gamemode of {_p} to {_original_gamemode}
+	
+	# ActionBar表示（ランク + 所持金、5秒間）
+	set {_rank} to {-kp::%{_uuid}%::rank}
+	set {_coins} to {-kp::%{_uuid}%::coins}
+	if {_rank} is not set:
+		set {_rank} to "F"
+	if {_coins} is not set:
+		set {_coins} to 1000
+	if {_coins} is not set:
+		set {_coins} to 1000
+		
+		# 5秒間表示 (Alert機能利用)
+	display_alert({_p}, "&7ランク: &b%{_rank}% &8| &7所持金: &6%{_coins}%Δ", 100)
+	
+	# -------------------------------------------------------------------------
+	# Function: sfx_login
+	# Description: ログイン時のコンポジットサウンド
+	# -------------------------------------------------------------------------
+function sfx_login(p: player):
+	play sound "BLOCK_BEACON_POWER_SELECT" with volume 1 with pitch 0.5 to {_p}
+	play sound "ENTITY_EXPERIENCE_ORB_PICKUP" with volume 1 with pitch 1.2 to {_p}
+	play sound "UI_TOAST_CHALLENGE_COMPLETE" with volume 0.5 with pitch 1 to {_p}
+	
+	# -------------------------------------------------------------------------
+	# Function: sfx_success
+	# Description: 成功時のサウンド
+	# -------------------------------------------------------------------------
+function sfx_success(p: player):
+	play sound "ENTITY_EXPERIENCE_ORB_PICKUP" with volume 1 with pitch 1 to {_p}
+	
+	# -------------------------------------------------------------------------
+	# Function: sfx_error
+	# Description: エラー時のサウンド
+	# -------------------------------------------------------------------------
+function sfx_error(p: player):
+	play sound "ENTITY_VILLAGER_NO" with volume 1 with pitch 1 to {_p}
+	
+	# -------------------------------------------------------------------------
+	# Function: sfx_gui_open
+	# Description: GUI開く時のサウンド
+	# -------------------------------------------------------------------------
+function sfx_gui_open(p: player):
+	play sound "BLOCK_CHEST_OPEN" with volume 1 with pitch 1 to {_p}
+	
+	# -------------------------------------------------------------------------
+	# Function: sfx_gui_close
+	# Description: GUI閉じる時のサウンド
+	# -------------------------------------------------------------------------
+function sfx_gui_close(p: player):
+	play sound "BLOCK_CHEST_CLOSE" with volume 1 with pitch 1 to {_p}
+	
+	# -------------------------------------------------------------------------
+	# Function: sfx_click
+	# Description: ボタンクリック時のサウンド
+	# -------------------------------------------------------------------------
+function sfx_click(p: player):
+	play sound "UI_BUTTON_CLICK" with volume 1 with pitch 1 to {_p}
+	
+	
+	# -------------------------------------------------------------------------
+	# Function: sfx_stagger
+	# Description: ボタンクリック時のサウンド
+	# -------------------------------------------------------------------------
+function sfx_stagger(p: player):
+	play sound "ENTITY_GENERIC_EXPLODE" with volume 1 with pitch 0.75 to {_p}
+	play sound "BLOCK_ANVIL_LAND" with volume 0.5 with pitch 0.2 to {_p}
+	
+	wait 2.75 ticks
+	
+	loop 15 times:
+		play sound "BLOCK_NOTE_BLOCK_BIT" with volume 1 with pitch 2 to {_p}
+		wait 3 ticks
+		
+		# -------------------------------------------------------------------------
+		# Function: fx_boot_sequence_emergency
+		# Description: 強制帰還（切断復帰）時の緊急起動シーケンス
+		# -------------------------------------------------------------------------
+function fx_boot_sequence_emergency(p: player):
+# ========== 移動・視点制限開始 ==========
+	set {_original_gamemode} to gamemode of {_p}
+	set {_uuid} to uuid of {_p}
+	
+	set gamemode of {_p} to spectator
+	set {-sys::boot::%{_uuid}%::freeze} to true
+	apply blindness 10 to {_p}
+	
+	# 緊急アラート
+	play sound "BLOCK_NOTE_BLOCK_BASEDRUM" with volume 1 with pitch 0.5 to {_p}
+	send title "&c&k||| &4SYSTEM FAILURE &c&k|||" with subtitle "&7異常切断を検知しました" to {_p} for 2 seconds
+	wait 40 ticks
+	
+	play sound "BLOCK_NOTE_BLOCK_BASEDRUM" with volume 1 with pitch 0.5 to {_p}
+	send title "&c&k||| &4SYSTEM FAILURE &c&k|||" with subtitle "&7セーフモードで再起動します..." to {_p} for 2 seconds
+	wait 40 ticks
+	
+	# 復旧プロセス
+	play sound "UI_BUTTON_CLICK" with volume 1 with pitch 2 to {_p}
+	send title "" with subtitle "&c> &7Recovering User Data..." to {_p} for 10 seconds
+	wait 10 ticks
+	play sound "UI_BUTTON_CLICK" with volume 1 with pitch 2 to {_p}
+	send title "" with subtitle "&c> &7Checking Integrity..." to {_p} for 10 seconds
+	wait 10 ticks
+	play sound "ENTITY_GENERIC_EXPLODE" with volume 0.5 with pitch 2 to {_p}
+	send title "" with subtitle "&c> &4CRITICAL ERROR DETECTED" to {_p} for 10 seconds
+	wait 20 ticks
+	
+	send title "&c&lEMERGENCY REBOOT" with subtitle "&7ロビー接続を確立しました。" to {_p} for 3 seconds
+	
+	# ロード完了
+	wait 10 ticks
+	remove blindness from {_p}
+	
+	# エラー用サウンド
+	sfx_error({_p})
+	
+	# 制限解除
+	delete {-sys::boot::%{_uuid}%::freeze}
+	set gamemode of {_p} to {_original_gamemode}
+	
+	# -------------------------------------------------------------------------
+	# Event: Player Join
+	# Description: ログイン時のブートシーケンスとメッセージ
+	# -------------------------------------------------------------------------
+on join:
+# 強制帰還フラグチェック
+	if {-kp::%player's uuid%::pg::force_return} is true:
+	# 緊急シーケンス (UXのみ担当、テレポートやペナルティ処理は death.sk が行う)
+		fx_boot_sequence_emergency(player)
+	else:
+	# 通常ブートシーケンス
+		fx_boot_sequence(player)
+		
+		# 全プレイヤーにJoinメッセージ
+	broadcast "&8[&aSYNC&8] &f%player's name% &7connected"
+	
+	# -------------------------------------------------------------------------
+	# Event: Player Quit
+	# Description: ログアウト時のメッセージ
+	# -------------------------------------------------------------------------
+on quit:
+# 全プレイヤーにQuitメッセージ
+	broadcast "&8[&cDISC&8] &f%player's name% &7disconnected"
+	
+	# ブートシーケンス中の場合、フラグをクリーンアップ
+	delete {-sys::boot::%player's uuid%::freeze}
+	delete {-sys::boot::%player's uuid%::loc}
+	
+	# -------------------------------------------------------------------------
+	# Event: Player Move
+	# Description: ブートシーケンス中の移動・視点移動を完全にブロック
+	# -------------------------------------------------------------------------
+on player move:
+# ブートシーケンス中のプレイヤーの移動をキャンセル
+	if {-sys::boot::%player's uuid%::freeze} is true:
+		cancel event

@@ -1,0 +1,70 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Combat Damage Calculator
+# Author: Antigravity Agent
+# Since: 2025-12-24
+# Description: カスタムダメージ計算、スタッガー蓄積、フローティング表示連携
+# -------------------------------------------------------------------------
+
+options:
+	PREFIX: "&c[Damage] &r"
+	IMPACT_MULTIPLIER: 0.5
+	DIRECT_HIT_MULTIPLIER: 1.5
+	CRIT_MULTIPLIER: 1.5
+	
+on load:
+	send "%{@PREFIX}%&aダメージ計算モジュール初期化完了" to console
+	
+	# -------------------------------------------------------------------------
+	# Event: on damage - カスタムダメージ計算
+	# -------------------------------------------------------------------------
+on damage:
+# 基礎ダメージを取得
+	set {_base_damage} to final damage
+	if {_base_damage} <= 0:
+		stop
+		
+		# 被害者の位置を取得
+	set {_loc} to location of victim
+	
+	# 攻撃者がプレイヤーの場合のみカスタム計算
+	if attacker is a player:
+		set {_attacker} to attacker
+		
+		# クリティカル判定（ジャンプ攻撃）
+		set {_is_crit} to false
+		if {_attacker} is not on ground:
+			if {_attacker} is not sprinting:
+				set {_is_crit} to true
+				
+				# ダイレクトヒット判定（被害者がプレイヤーでスタッガー中）
+		set {_is_direct_hit} to false
+		if victim is a player:
+			if stagger_is_active(victim) is true:
+				set {_is_direct_hit} to true
+				
+				# ダメージ計算
+		set {_final_damage} to {_base_damage}
+		
+		# 会心補正
+		if {_is_crit} is true:
+			set {_final_damage} to {_final_damage} * {@CRIT_MULTIPLIER}
+			
+			# ダイレクトヒット補正
+		if {_is_direct_hit} is true:
+			set {_final_damage} to {_final_damage} * {@DIRECT_HIT_MULTIPLIER}
+			display_show_direct_hit({_loc}, {_final_damage})
+		else:
+			display_show_damage({_loc}, {_final_damage}, {_is_crit})
+			
+			# スタッガー蓄積（被害者がプレイヤーの場合）
+		if victim is a player:
+			set {_impact} to {_final_damage} * {@IMPACT_MULTIPLIER}
+			stagger_add_impact(victim, {_impact})
+			# Visual Effect
+			display_effect_damage_glitch(victim)
+			
+			# ダメージをオーバーライド
+		set damage to {_final_damage}
+	else:
+	# 攻撃者がプレイヤーでない場合は表示のみ
+		display_show_damage({_loc}, {_base_damage}, false)

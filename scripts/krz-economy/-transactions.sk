@@ -1,0 +1,39 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Economy Transactions
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# -------------------------------------------------------------------------
+
+options:
+	PREFIX: "&6[Economy] &r"
+	CURRENCY_SYMBOL: "Δ"
+	MIN_TRANSACTION: 1
+	
+	# -------------------------------------------------------------------------
+	# Command: /pay
+	# Description: Send money to another player
+	# -------------------------------------------------------------------------
+command /pay <player> <number>:
+	trigger:
+		if arg-2 < {@MIN_TRANSACTION}:
+			send "%{@PREFIX}%&c最低送金額は %{@MIN_TRANSACTION}% %{@CURRENCY_SYMBOL}% です。" to player
+			stop
+			
+		if arg-1 is player:
+			send "%{@PREFIX}%&c自分自身には送金できません。" to player
+			stop
+			
+		if econ_has(player, arg-2) is true:
+			econ_remove(player, arg-2)
+			econ_add(arg-1, arg-2)
+			
+			set {_amount_formatted} to core_format_money(arg-2)
+			send "%{@PREFIX}%&a%arg-1% &rに %{_amount_formatted}% を送金しました。" to player
+			send "%{@PREFIX}%&a%player% &rから %{_amount_formatted}% を受け取りました。" to arg-1
+			
+			# Log the transaction
+			econ_log_transfer(player, arg-1, arg-2)
+		else:
+			send "%{@PREFIX}%&c残高不足です。" to player
+			set {_balance} to econ_get_balance(player)
+			send "%{@PREFIX}%現在の残高: %core_format_money({_balance})%" to player

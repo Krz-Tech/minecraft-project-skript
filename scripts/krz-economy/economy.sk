@@ -1,0 +1,96 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Economy Core
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# -------------------------------------------------------------------------
+
+options:
+	PREFIX: "&6[Economy] &r"
+	CURRENCY_SYMBOL: "c"
+	STARTING_BALANCE: 1000
+	
+on load:
+	core_log("Economy module loaded.")
+	
+	# Initialize new player with starting balance
+on join:
+	if {-kp::%player's uuid%::balance} is not set:
+		set {-kp::%player's uuid%::balance} to {@STARTING_BALANCE}
+		econ_log(player, {@STARTING_BALANCE}, "initial_balance")
+		
+		# -------------------------------------------------------------------------
+		# Function: econ_get_balance
+		# Description: Returns the player's current balance
+		# -------------------------------------------------------------------------
+function econ_get_balance(p: player) :: number:
+	if {-kp::%{_p}'s uuid%::balance} is not set:
+		set {-kp::%{_p}'s uuid%::balance} to {@STARTING_BALANCE}
+	return {-kp::%{_p}'s uuid%::balance}
+	
+	# -------------------------------------------------------------------------
+	# Function: econ_add
+	# Description: Adds money to player's balance
+	# -------------------------------------------------------------------------
+function econ_add(p: player, amount: number):
+	add {_amount} to {-kp::%{_p}'s uuid%::balance}
+	econ_log({_p}, {_amount}, "add")
+	
+	# -------------------------------------------------------------------------
+	# Function: econ_remove
+	# Description: Removes money from player's balance
+	# -------------------------------------------------------------------------
+function econ_remove(p: player, amount: number) :: boolean:
+	if econ_has({_p}, {_amount}) is true:
+		remove {_amount} from {-kp::%{_p}'s uuid%::balance}
+		econ_log({_p}, {_amount} * -1, "remove")
+		return true
+	return false
+	
+	# -------------------------------------------------------------------------
+	# Function: econ_set
+	# Description: Sets player's balance to a specific amount
+	# -------------------------------------------------------------------------
+function econ_set(p: player, amount: number):
+	set {-kp::%{_p}'s uuid%::balance} to {_amount}
+	econ_log({_p}, {_amount}, "set")
+	
+	# -------------------------------------------------------------------------
+	# Function: econ_has
+	# Description: Checks if player has enough money
+	# -------------------------------------------------------------------------
+function econ_has(p: player, amount: number) :: boolean:
+	if econ_get_balance({_p}) >= {_amount}:
+		return true
+	return false
+	
+	# -------------------------------------------------------------------------
+	# Commands
+	# -------------------------------------------------------------------------
+command /balance [<offline player>]:
+	aliases: /bal, /money
+	trigger:
+		if arg-1 is not set:
+			set {_balance} to econ_get_balance(player)
+			send "%{@PREFIX}%残高: &a%core_format_money({_balance})%" to player
+		else:
+			if player has permission "krz.economy.balance.others":
+				set {_balance} to econ_get_balance(arg-1)
+				send "%{@PREFIX}%%arg-1%の残高: &a%core_format_money({_balance})%" to player
+			else:
+				core_msg(player, "no_permission")
+				
+command /eco <text> <offline player> [<number>]:
+	permission: krz.admin
+	trigger:
+		if arg-1 is "set":
+			if arg-3 is set:
+				econ_set(arg-2, arg-3)
+				send "%{@PREFIX}%%arg-2%の残高を &a%core_format_money(arg-3)% &rに設定しました。" to player
+		else if arg-1 is "add" or "give":
+			if arg-3 is set:
+				econ_add(arg-2, arg-3)
+				send "%{@PREFIX}%%arg-2%に &a%core_format_money(arg-3)% &r付与しました。" to player
+		else if arg-1 is "remove" or "take":
+			if arg-3 is set:
+				econ_remove(arg-2, arg-3)
+				send "%{@PREFIX}%%arg-2%から &c%core_format_money(arg-3)% &r削除しました。" to player

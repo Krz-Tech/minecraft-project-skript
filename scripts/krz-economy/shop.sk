@@ -1,0 +1,23 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Economy Shop
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# -------------------------------------------------------------------------
+
+options:
+	PREFIX: "&6[Shop] &r"
+	
+	# -------------------------------------------------------------------------
+	# Command: /shop
+	# Description: Opens the shop interface (placeholder for future GUI)
+	# -------------------------------------------------------------------------
+command /shop:
+	trigger:
+		send "%{@PREFIX}%&eショップシステムは現在開発中です。" to player
+		send "%{@PREFIX}%&7将来的にはGUIショップが実装される予定です。" to player
+		
+		# TODO: Implement GUI shop with SkBee
+		# - Item categories
+		# - Buy/Sell interface
+		# - Price configuration
+		# - Stock management

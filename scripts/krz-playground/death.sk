@@ -1,0 +1,77 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Playground Death & Disconnect
+# Description: 死亡・切断時の強制帰還とペナルティ処理
+# -------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------
+# Event: Player Quit
+# Description: プレイグラウンド滞在中の切断
+# -------------------------------------------------------------------------
+on quit:
+# セッションがアクティブ、またはプレイグラウンドワールドにいる場合
+	if {-kp::%uuid of player%::pg::session_active} is set:
+	# セッションを「失敗」として終了
+		pg_session_end(player, false)
+		
+		# 次回参加時の処理用フラグを設定
+		set {-kp::%uuid of player%::pg::force_return} to true
+		
+		# ワールド判定で漏れがないように念のためチェック (test: world)
+		# if player's world is "world":
+		# すでに session_end が呼ばれているかもしれないが、二重チェックは安全
+		# set {-kp::%uuid of player%::pg::force_return} to true
+		
+		# -------------------------------------------------------------------------
+		# Event: Player Death
+		# Description: プレイグラウンドでの死亡
+		# -------------------------------------------------------------------------
+on death of player:
+	if victim's world is "world": # test: world
+	# メッセージ無効化
+		set death message to ""
+		
+		# アイテムドロップをキャンセル (没収ロジックのため)
+		clear drops
+		
+		# セッション終了 (失敗)
+		pg_session_end(victim, false)
+		
+		# 即時リスポーン処理 (Paper設定依存だが、Skriptで強制リスポーンさせる場合もあり)
+		# ここでは次回リスポーン時にロビーへ送るフラグ
+		set {-kp::%uuid of victim%::pg::force_return} to true
+		
+		# force respawn victim (Syntax Error: Removed)
+		
+		# -------------------------------------------------------------------------
+		# Event: Player Respawn
+		# Description: 死亡後のリスポーン地点制御
+		# -------------------------------------------------------------------------
+on respawn:
+	if {-kp::%uuid of player%::pg::force_return} is true:
+		set respawn location to {loc::lobby}
+		# 念のため削除（Join時にもチェックするが）
+		delete {-kp::%uuid of player%::pg::force_return}
+		
+		# ペナルティ通知
+		wait 1 second
+		send "&c[System] &l強制帰還" to player
+		send "&7死亡または切断により、収集した物資は破棄されました。" to player
+		send "&7ランク経験値が減少しました。" to player
+		
+		# -------------------------------------------------------------------------
+		# Event: Player Join (Disconnect Recovery)
+		# Description: 切断復帰時のロビー転送とペナルティ通知
+		# -------------------------------------------------------------------------
+on join:
+	if {-kp::%uuid of player%::pg::force_return} is true:
+		wait 1 second
+		teleport player to {loc::lobby}
+		delete {-kp::%uuid of player%::pg::force_return}
+		
+		# ペナルティ通知
+		send "&c[System] &l強制帰還" to player
+		send "&7予期せぬ切断により、セッションは破棄されました。" to player
+		send "&7収集した物資は全て没収されました。" to player
+		
+		# ペナルティサウンド
+		sfx_error(player)

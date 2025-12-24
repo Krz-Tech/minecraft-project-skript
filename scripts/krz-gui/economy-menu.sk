@@ -1,0 +1,39 @@
+# -------------------------------------------------------------------------
+# Module: Krz-GUI Economy Menu  
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# Description: Economy and transaction display
+# -------------------------------------------------------------------------
+
+options:
+	TITLE: "&6&l経済メニュー"
+	
+	# -------------------------------------------------------------------------
+	# Function: open_economy_menu
+	# Description: Opens the economy menu GUI
+	# -------------------------------------------------------------------------
+function open_economy_menu(p: player):
+	set {_balance} to econ_get_balance({_p})
+	set {_balance_formatted} to core_format_money({_balance})
+	
+	set {_gui} to chest inventory with 3 rows named "&6&l経済メニュー"
+	open {_gui} to {_p}
+	wait 1 tick
+	gui_play_open({_p})
+	
+	# Background
+	loop 27 times:
+		if slot loop-number - 1 of {_p}'s current inventory is air:
+			set slot loop-number - 1 of {_p}'s current inventory to gray stained glass pane named "&r"
+			
+			# Balance display (slot 4)
+	set slot 4 of {_p}'s current inventory to gold ingot named "&6残高" with lore "&7現在の所持金", "&r" and "&6%{_balance_formatted}%"
+	
+	# Transaction history (slot 13)
+	set slot 13 of {_p}'s current inventory to book named "&7取引履歴" with lore "&7取引履歴を表示" and "&8(開発中)"
+	
+	# Shop (slot 15)
+	set slot 15 of {_p}'s current inventory to oak planks named "&a建材ショップ" with lore "&7建材ショップを開く", "&r" and "&8▶ &fクリックで開く"
+	
+	# Back button (slot 22)
+	set slot 22 of {_p}'s current inventory to gui_create_back_button()

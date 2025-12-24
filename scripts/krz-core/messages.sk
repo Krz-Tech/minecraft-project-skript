@@ -1,0 +1,27 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Core Messages
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# -------------------------------------------------------------------------
+
+on load:
+    # System Messages
+    set {-krz::msg::no_permission} to "&c権限がありません。"
+    set {-krz::msg::error_general} to "&cエラーが発生しました。"
+    set {-krz::msg::success_general} to "&a処理が成功しました。"
+    
+    # Economy Messages
+    set {-krz::msg::economy_recieved} to "&a%{_amount}% &rを受け取りました。"
+    set {-krz::msg::economy_paid} to "&c%{_amount}% &rを支払いました。"
+
+# -------------------------------------------------------------------------
+# Function: core_msg
+# Description: Sends a defined message to a player.
+# -------------------------------------------------------------------------
+function core_msg(p: player, key: text):
+    if {-krz::msg::%{_key}%} is set:
+        set {_msg} to {-krz::msg::%{_key}%}
+        send "%{-krz::config::prefix}% %{_msg}%" to {_p}
+    else:
+        # Fallback if message key not found
+        send "%{-krz::config::prefix}% &cMessage key not found: %{_key}%" to {_p}

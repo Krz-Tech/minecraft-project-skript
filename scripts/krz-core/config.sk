@@ -1,0 +1,38 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Core Config
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# -------------------------------------------------------------------------
+
+options:
+	PREFIX: "&b[Tech] &r"
+	
+on load:
+# ---------------------------------------------------------------------
+# Global Settings
+# ---------------------------------------------------------------------
+	set {-krz::config::prefix} to "&b[Tech] &r"
+	set {-krz::config::version} to "1.0.0"
+	
+	# ---------------------------------------------------------------------
+	# Feature Flags
+	# ---------------------------------------------------------------------
+	set {-krz::config::debug_mode} to false
+	
+	# ---------------------------------------------------------------------
+	# Database Settings (Default)
+	# ---------------------------------------------------------------------
+	if {-krz::config::db_host} is not set:
+		set {-krz::config::db_host} to "db-service"
+		set {-krz::config::db_port} to 3306
+		set {-krz::config::db_name} to "minecraft"
+		set {-krz::config::db_user} to "server_user"
+		set {-krz::config::db_pass} to "password_placeholder"
+		
+	send "%{@PREFIX}%Configuration loaded." to console
+	
+command /krz-config-reload:
+	permission: krz.admin
+	trigger:
+		make console execute command "sk reload krz-core/config.sk"
+		send "%{@PREFIX}%&aConfig reloaded." to player

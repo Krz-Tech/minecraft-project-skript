@@ -1,0 +1,337 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Core Floating Display
+# Author: Antigravity Agent
+# Since: 2025-12-24
+# Description: SkBee を使用したフローティングテキスト表示システム
+# Note: Text Display の削除には delete ではなく kill を使用する必要がある
+# -------------------------------------------------------------------------
+
+options:
+	PREFIX: "&b[FloatingDisplay] &r"
+	
+function display_init():
+	send "%{@PREFIX}%&a初期化完了 (SkBee Text Display)" to console
+	delete {-display::pending::*}
+	
+	# -------------------------------------------------------------------------
+	# ダメージ表示（スロットマシン風 + 色変化アニメーション）
+	# -------------------------------------------------------------------------
+function display_show_damage(loc: location, damage: number, is_crit: boolean):
+	set {_rounded} to floor({_damage} * 10) / 10
+	set {_offset_x} to random number between -0.3 and 0.3
+	set {_offset_z} to random number between -0.3 and 0.3
+	set {_display_loc} to {_loc}
+	add {_offset_x} to x-coord of {_display_loc}
+	add 2.2 to y-coord of {_display_loc}
+	add {_offset_z} to z-coord of {_display_loc}
+	
+	spawn text display at {_display_loc}
+	set {_display} to last spawned entity
+	set display billboard of {_display} to center
+	set {_id} to random integer between 100000 and 999999
+	set {-display::pending::%{_id}%} to {_display}
+	
+	if {_is_crit} is true:
+	# クリティカル: 黄→オレンジ→赤 + スロットアニメーション
+		set display scale of {_display} to vector(3.0, 3.0, 3.0)
+		set display text of {_display} to "&e&l⚡ -%{_rounded}%"
+		wait 2 ticks
+		set display scale of {_display} to vector(2.5, 2.5, 2.5)
+		set display text of {_display} to "&6&l⚡ -%{_rounded}%"
+		wait 2 ticks
+		set display scale of {_display} to vector(2.0, 2.0, 2.0)
+		set display text of {_display} to "&c&l⚡ -%{_rounded}%"
+		wait 2 ticks
+		set display scale of {_display} to vector(1.5, 1.5, 1.5)
+		set display text of {_display} to "&4&l⚡ -%{_rounded}%"
+		wait 2 ticks
+		set display scale of {_display} to vector(1.2, 1.2, 1.2)
+	else:
+	# 通常: 白→オレンジ + スロットアニメーション
+		set display scale of {_display} to vector(2.5, 2.5, 2.5)
+		set display text of {_display} to "&f-%{_rounded}%"
+		wait 2 ticks
+		set display scale of {_display} to vector(2.0, 2.0, 2.0)
+		set display text of {_display} to "&e-%{_rounded}%"
+		wait 2 ticks
+		set display scale of {_display} to vector(1.5, 1.5, 1.5)
+		set display text of {_display} to "&6-%{_rounded}%"
+		wait 2 ticks
+		set display scale of {_display} to vector(1.2, 1.2, 1.2)
+		set display text of {_display} to "&c-%{_rounded}%"
+		wait 2 ticks
+		set display scale of {_display} to vector(1.0, 1.0, 1.0)
+		
+		# 表示維持
+	wait 1.5 seconds
+	
+	# フェードアウト
+	set display scale of {_display} to vector(0.8, 0.8, 0.8)
+	wait 2 ticks
+	set display scale of {_display} to vector(0.5, 0.5, 0.5)
+	wait 2 ticks
+	set display scale of {_display} to vector(0.2, 0.2, 0.2)
+	wait 2 ticks
+	
+	if {-display::pending::%{_id}%} is set:
+		kill {-display::pending::%{_id}%}
+		clear {-display::pending::%{_id}%}
+		
+		# -------------------------------------------------------------------------
+		# 回復表示（緑のパルスアニメーション）
+		# -------------------------------------------------------------------------
+function display_show_heal(loc: location, amount: number):
+	set {_display_loc} to {_loc}
+	add 2.2 to y-coord of {_display_loc}
+	
+	spawn text display at {_display_loc}
+	set {_display} to last spawned entity
+	set display billboard of {_display} to center
+	set {_id} to random integer between 100000 and 999999
+	set {-display::pending::%{_id}%} to {_display}
+	
+	# 明るい緑→緑 + スロットアニメーション
+	set display scale of {_display} to vector(2.5, 2.5, 2.5)
+	set display text of {_display} to "&a&l✚ %{_amount}%"
+	wait 2 ticks
+	set display scale of {_display} to vector(2.0, 2.0, 2.0)
+	set display text of {_display} to "&2&l✚ %{_amount}%"
+	wait 2 ticks
+	set display scale of {_display} to vector(1.5, 1.5, 1.5)
+	set display text of {_display} to "&a✚ %{_amount}%"
+	wait 2 ticks
+	set display scale of {_display} to vector(1.0, 1.0, 1.0)
+	set display text of {_display} to "&2+ %{_amount}%"
+	
+	wait 1.5 seconds
+	
+	set display scale of {_display} to vector(0.8, 0.8, 0.8)
+	wait 2 ticks
+	set display scale of {_display} to vector(0.5, 0.5, 0.5)
+	wait 2 ticks
+	
+	if {-display::pending::%{_id}%} is set:
+		kill {-display::pending::%{_id}%}
+		clear {-display::pending::%{_id}%}
+		
+		# -------------------------------------------------------------------------
+		# ステータス表示（シアン系パルス）
+		# -------------------------------------------------------------------------
+function display_show_status(loc: location, text: text, color: text):
+	set {_display_loc} to {_loc}
+	add 2.0 to y-coord of {_display_loc}
+	
+	spawn text display at {_display_loc}
+	set {_display} to last spawned entity
+	set display billboard of {_display} to center
+	set {_id} to random integer between 100000 and 999999
+	set {-display::pending::%{_id}%} to {_display}
+	
+	set display scale of {_display} to vector(2.5, 2.5, 2.5)
+	set display text of {_display} to "&b&l» %{_text}%"
+	wait 2 ticks
+	set display scale of {_display} to vector(2.0, 2.0, 2.0)
+	set display text of {_display} to "&3&l» %{_text}%"
+	wait 2 ticks
+	set display scale of {_display} to vector(1.5, 1.5, 1.5)
+	set display text of {_display} to "%{_color}%» %{_text}%"
+	wait 2 ticks
+	set display scale of {_display} to vector(1.0, 1.0, 1.0)
+	set display text of {_display} to "%{_color}%%{_text}%"
+	
+	wait 1.5 seconds
+	
+	set display scale of {_display} to vector(0.5, 0.5, 0.5)
+	wait 2 ticks
+	
+	if {-display::pending::%{_id}%} is set:
+		kill {-display::pending::%{_id}%}
+		clear {-display::pending::%{_id}%}
+		
+		# -------------------------------------------------------------------------
+		# EN変動表示（青/黄色のエネルギー風）
+		# -------------------------------------------------------------------------
+function display_show_en_change(loc: location, amount: number):
+	set {_display_loc} to {_loc}
+	add 1.8 to y-coord of {_display_loc}
+	
+	spawn text display at {_display_loc}
+	set {_display} to last spawned entity
+	set display billboard of {_display} to center
+	set {_id} to random integer between 100000 and 999999
+	set {-display::pending::%{_id}%} to {_display}
+	
+	set display scale of {_display} to vector(2.0, 2.0, 2.0)
+	
+	if {_amount} > 0:
+		set display text of {_display} to "&b&l⚡ +%{_amount}%"
+		wait 2 ticks
+		set display scale of {_display} to vector(1.5, 1.5, 1.5)
+		set display text of {_display} to "&3⚡ +%{_amount}% EN"
+		wait 2 ticks
+		set display scale of {_display} to vector(1.0, 1.0, 1.0)
+		set display text of {_display} to "&b+%{_amount}% EN"
+	else:
+		set display text of {_display} to "&e&l⚡ %{_amount}%"
+		wait 2 ticks
+		set display scale of {_display} to vector(1.5, 1.5, 1.5)
+		set display text of {_display} to "&6⚡ %{_amount}% EN"
+		wait 2 ticks
+		set display scale of {_display} to vector(1.0, 1.0, 1.0)
+		set display text of {_display} to "&e%{_amount}% EN"
+		
+	wait 1 second
+	
+	set display scale of {_display} to vector(0.5, 0.5, 0.5)
+	wait 2 ticks
+	
+	if {-display::pending::%{_id}%} is set:
+		kill {-display::pending::%{_id}%}
+		clear {-display::pending::%{_id}%}
+		
+		# -------------------------------------------------------------------------
+		# スタッガー表示（衝撃的なフラッシュ）
+		# -------------------------------------------------------------------------
+function display_show_stagger(loc: location, type: text, value: number):
+	set {_display_loc} to {_loc}
+	add 2.2 to y-coord of {_display_loc}
+	
+	spawn text display at {_display_loc}
+	set {_display} to last spawned entity
+	set display billboard of {_display} to center
+	set {_id} to random integer between 100000 and 999999
+	set {-display::pending::%{_id}%} to {_display}
+	
+	if {_type} is "break":
+	# スタッガーブレイク: 激しいフラッシュ
+		set display scale of {_display} to vector(4.0, 4.0, 4.0)
+		set display text of {_display} to "&e&lACS Overload!!!"
+		wait 2 ticks
+		set display scale of {_display} to vector(3.0, 3.0, 3.0)
+		set display text of {_display} to "&6&lACS Overload!!!"
+		wait 2 ticks
+		set display scale of {_display} to vector(2.5, 2.5, 2.5)
+		set display text of {_display} to "&c&lACS Overload!!!"
+		wait 2 ticks
+		set display scale of {_display} to vector(2.0, 2.0, 2.0)
+		set display text of {_display} to "&4&lACS Overload!!!"
+		wait 2 ticks
+		set display scale of {_display} to vector(1.5, 1.5, 1.5)
+		wait 2 seconds
+	else:
+	# インパクト蓄積
+		set display scale of {_display} to vector(2.0, 2.0, 2.0)
+		set display text of {_display} to "&e&l+%{_value}%"
+		wait 2 ticks
+		set display scale of {_display} to vector(1.5, 1.5, 1.5)
+		set display text of {_display} to "&6+%{_value}% IMPACT"
+		wait 2 ticks
+		set display scale of {_display} to vector(1.0, 1.0, 1.0)
+		wait 1 second
+		
+	set display scale of {_display} to vector(0.5, 0.5, 0.5)
+	wait 2 ticks
+	
+	if {-display::pending::%{_id}%} is set:
+		kill {-display::pending::%{_id}%}
+		clear {-display::pending::%{_id}%}
+		
+		# -------------------------------------------------------------------------
+		# ダイレクトヒット表示（特大インパクト）
+		# -------------------------------------------------------------------------
+function display_show_direct_hit(loc: location, damage: number):
+	set {_rounded} to floor({_damage} * 10) / 10
+	set {_display_loc} to {_loc}
+	add 2.0 to y-coord of {_display_loc}
+	
+	spawn text display at {_display_loc}
+	set {_display} to last spawned entity
+	set display billboard of {_display} to center
+	set {_id} to random integer between 100000 and 999999
+	set {-display::pending::%{_id}%} to {_display}
+	
+	# 黄→オレンジ→赤の激しいフラッシュ
+	set display scale of {_display} to vector(4.0, 4.0, 4.0)
+	set display text of {_display} to "&e&l💥 DIRECT!"
+	wait 2 ticks
+	set display scale of {_display} to vector(3.5, 3.5, 3.5)
+	set display text of {_display} to "&6&l💥 DIRECT HIT!"
+	wait 2 ticks
+	set display scale of {_display} to vector(3.0, 3.0, 3.0)
+	set display text of {_display} to "&c&l💥 %{_rounded}%"
+	wait 2 ticks
+	set display scale of {_display} to vector(2.5, 2.5, 2.5)
+	set display text of {_display} to "&4&l💥 DIRECT HIT! %{_rounded}%"
+	wait 2 ticks
+	set display scale of {_display} to vector(2.0, 2.0, 2.0)
+	
+	wait 2 seconds
+	
+	set display scale of {_display} to vector(1.0, 1.0, 1.0)
+	wait 2 ticks
+	set display scale of {_display} to vector(0.5, 0.5, 0.5)
+	wait 2 ticks
+	
+	if {-display::pending::%{_id}%} is set:
+		kill {-display::pending::%{_id}%}
+		clear {-display::pending::%{_id}%}
+		
+on load:
+	display_init()
+	
+command /testdamage [<number=50>] [<boolean=false>]:
+	permission: op
+	trigger:
+		set {_loc} to location of player
+		add 2 to y-coord of {_loc}
+		display_show_damage({_loc}, arg-1, arg-2)
+		send "%{@PREFIX}%&aダメージ表示テスト: %arg-1% (Crit: %arg-2%)" to player
+		
+command /teststatus [<text=+50 HP>]:
+	permission: op
+	trigger:
+		set {_loc} to location of player
+		display_show_status({_loc}, arg-1, "&a")
+		send "%{@PREFIX}%&aステータス表示テスト: %arg-1%" to player
+		
+command /testheal [<number=25>]:
+	permission: op
+	trigger:
+		set {_loc} to location of player
+		display_show_heal({_loc}, arg-1)
+		send "%{@PREFIX}%&aヒール表示テスト: +%arg-1%" to player
+		
+command /teststagger [<text=break>]:
+	permission: op
+	trigger:
+		set {_loc} to location of player
+		if arg-1 is "break":
+			display_show_stagger({_loc}, "break", 0)
+			send "%{@PREFIX}%&aスタッガーブレイク表示テスト" to player
+		else:
+			display_show_stagger({_loc}, "impact", 15)
+			send "%{@PREFIX}%&aインパクト表示テスト" to player
+			
+command /testdirecthit [<number=100>]:
+	permission: op
+	trigger:
+		set {_loc} to location of player
+		display_show_direct_hit({_loc}, arg-1)
+		send "%{@PREFIX}%&aダイレクトヒット表示テスト: %arg-1%" to player
+		
+command /cleardisplays:
+	permission: op
+	trigger:
+		execute console command "kill @e[type=minecraft:text_display]"
+		delete {-display::pending::*}
+		send "%{@PREFIX}%&c全ての Text Display を削除しました" to player
+		
+		# -------------------------------------------------------------------------
+		# Event: 回復時にフローティング回復を表示
+		# -------------------------------------------------------------------------
+on heal:
+	set {_amount} to heal amount
+	if {_amount} <= 0:
+		stop
+	set {_loc} to location of event-entity
+	display_show_heal({_loc}, {_amount})

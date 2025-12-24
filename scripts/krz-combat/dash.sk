@@ -1,0 +1,308 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Combat Assault Dash
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# Description: High-speed mobility system with EN consumption
+# -------------------------------------------------------------------------
+
+import:
+	org.bukkit.entity.Player
+	
+options:
+	DASH_CHARGE_TIME: 30
+	DASH_EN_COST: 3
+	DASH_EN_INTERVAL: 10
+	DASH_SPEED_NORMAL: 0.2
+	DASH_SPEED_BOOST: 0.35
+	DASH_FLY_SPEED: 0.08 # 飛行速度
+	
+	# Quick Boost Options
+	QB_COST: 15
+	QB_COOLDOWN: 10 # 10 ticks = 0.5 seconds
+	QB_POWER: 1.3
+	QB_POWER_Y: 0.3
+	
+on load:
+	send "&d[Dash] &fAssault Dash module loaded." to console
+	
+on join:
+	wait 5 ticks
+	dash_init(player)
+	
+function dash_init(p: player):
+	set {-kp::%{_p}'s uuid%::dash::active} to false
+	set {-kp::%{_p}'s uuid%::dash::charge} to 0
+	
+function dash_is_active(p: player) :: boolean:
+	if {-kp::%{_p}'s uuid%::dash::active} is true:
+		return true
+	return false
+	
+function dash_start(p: player):
+	if {-kp::%{_p}'s uuid%::dash::active} is true:
+		stop
+	if stagger_is_active({_p}) is true:
+		stop
+	set {-kp::%{_p}'s uuid%::dash::active} to true
+	
+	# 初速ブースト (Initial Burst)
+	set {_p}'s walk speed to 0.6
+	push {_p} forward at speed 1.5
+	
+	# 飛行許可 (Flight Mode)
+	{_p}.setAllowFlight(true)
+	{_p}.setFlying(true) # 強制的に飛行状態へ
+	set {_p}'s fly speed to {@DASH_FLY_SPEED}
+	
+	# Jump boost level
+	set {_jump_level} to {-kp::%{_p}'s uuid%::dash::jump_level}
+	if {_jump_level} is not set:
+		set {_jump_level} to 2
+	apply jump boost {_jump_level} without particles to {_p} for 999 days
+	
+	# 起動音 (Ignition)
+	play sound "entity.generic.explode" with volume 0.5 with pitch 0.5 to {_p}
+	play sound "item.trident.riptide_3" with volume 0.8 with pitch 0.5 to {_p}
+	play sound "block.beacon.activate" with volume 1.0 with pitch 2.0 to {_p}
+	
+	display_alert({_p}, "&b&l>> ASSAULT BOOST IGNITION <<", 40)
+	
+	# ループ処理開始
+	dash_particle_loop_rgb({_p})
+	dash_sound_loop({_p})
+	
+	# 0.5秒後に巡航速度へ移行
+	wait 10 ticks
+	if {-kp::%{_p}'s uuid%::dash::active} is true:
+		set {_p}'s walk speed to {@DASH_SPEED_BOOST}
+		set {_p}'s fly speed to {@DASH_FLY_SPEED}
+		
+function dash_sound_loop(p: player):
+	while {-kp::%{_p}'s uuid%::dash::active} is true:
+	# ジェット噴射音 (Jet thruster sound)
+		play sound "item.elytra.flying" with volume 0.2 with pitch 2 to {_p}
+		play sound "block.fire.ambient" with volume 0.5 with pitch 0.5 to {_p}
+		wait 10 ticks
+		
+		
+function dash_get_color(p: player) :: text:
+	if {-kp::%{_p}'s uuid%::dash::color_mode} is set:
+		return {-kp::%{_p}'s uuid%::dash::color_mode}
+	return "cyan" # Default
+	
+function dash_particle_loop_rgb(p: player):
+	while {-kp::%{_p}'s uuid%::dash::active} is true:
+	# 色の決定
+		set {_color_mode} to dash_get_color({_p})
+		if {_color_mode} is "cyan":
+			set {_rgb} to rgb(0, 255, 255)
+			set {_core_rgb} to rgb(200, 255, 255)
+		else if {_color_mode} is "orange":
+			set {_rgb} to rgb(255, 140, 0)
+			set {_core_rgb} to rgb(255, 200, 100)
+		else if {_color_mode} is "red":
+			set {_rgb} to rgb(255, 50, 50)
+			set {_core_rgb} to rgb(255, 150, 150)
+		else if {_color_mode} is "purple":
+			set {_rgb} to rgb(180, 0, 255)
+			set {_core_rgb} to rgb(230, 150, 255)
+		else: # Fallback
+			set {_rgb} to rgb(0, 255, 255)
+			set {_core_rgb} to rgb(200, 255, 255)
+			
+			# プレイヤーの向きと位置
+		set {_loc} to location 0.4 meters behind {_p}
+		add 0.8 to y-coord of {_loc}
+		
+		# コーン状に噴射 (Cone Spray) - 増量
+		loop 40 times:
+			set {_v} to vector of {_p}
+			# multiply {_v} by -1 (Component-wise)
+			set x of {_v} to x of {_v} * -1
+			set y of {_v} to y of {_v} * -1
+			set z of {_v} to z of {_v} * -1
+			# ランダムな拡散
+			add (random number between -0.5 and 0.5) to x of {_v}
+			add (random number between -0.5 and 0.5) to y of {_v}
+			add (random number between -0.5 and 0.5) to z of {_v}
+			set {_v} to normalized {_v}
+			set x of {_v} to x of {_v} * 0.8 # 速度アップ
+			set y of {_v} to y of {_v} * 0.8
+			set z of {_v} to z of {_v} * 0.8
+			# 描画
+			draw 1 of dust using dustOption({_rgb}, 1.5) at {_loc} with force
+			
+			# 色ごとの補助パーティクル (Aux)
+		if {_color_mode} is "cyan":
+			draw 5 of soul fire flame at {_loc} with delta vector(0.2, 0.4, 0.2) with extra 0.1
+			draw 5 of electric spark at {_loc} with delta vector(0.5, 0.5, 0.5) with extra 0.2
+		else if {_color_mode} is "orange":
+			draw 5 of flame at {_loc} with delta vector(0.2, 0.4, 0.2) with extra 0.1
+			draw 3 of lava at {_loc} with delta vector(0.2, 0.2, 0.2) with extra 0.1
+		else if {_color_mode} is "red":
+			draw 5 of flame at {_loc} with delta vector(0.2, 0.4, 0.2) with extra 0.1
+			draw 3 of lava at {_loc} with delta vector(0.2, 0.2, 0.2) with extra 0.1
+			draw 5 of landing lava at {_loc} with delta vector(0.3, 0.3, 0.3) with extra 0.2
+		else if {_color_mode} is "purple":
+			draw 5 of dragon breath at {_loc} with delta vector(0.2, 0.4, 0.2) with extra 0.05
+			draw 5 of witch at {_loc} with delta vector(0.5, 0.5, 0.5) with extra 0.2
+			
+			# 軌跡
+		loop 5 times:
+			set {_back_loc} to location 2.0 meters behind {_p}
+			add 0.8 to y-coord of {_back_loc}
+			add (random number between -0.5 and 0.5) to x-coord of {_back_loc}
+			add (random number between -0.5 and 0.5) to y-coord of {_back_loc}
+			add (random number between -0.5 and 0.5) to z-coord of {_back_loc}
+			draw 1 of dust using dustOption({_rgb}, 1) at {_back_loc} with force
+			
+		wait 1 tick
+		
+		
+		
+function dash_stop(p: player):
+	if {-kp::%{_p}'s uuid%::dash::active} is not true:
+		stop
+	set {-kp::%{_p}'s uuid%::dash::active} to false
+	set {-kp::%{_p}'s uuid%::dash::charge} to 0
+	
+	# 状態リセット
+	set {_p}'s walk speed to {@DASH_SPEED_NORMAL}
+	set {_p}'s fly mode to false
+	{_p}.setAllowFlight(false)
+	set {_p}'s fly speed to 0.1
+	set {_p}'s fall distance to 0
+	
+	remove jump boost from {_p}
+	
+	# 排熱演出 (Cool-down VFX)
+	play sound "block.beacon.deactivate" with volume 0.5 with pitch 1 to {_p}
+	play sound "block.fire.extinguish" with volume 0.5 with pitch 0.8 to {_p} # ジュッ！
+	play sound "entity.creeper.primed" with volume 0.3 with pitch 2.0 to {_p} # シュー...
+	
+	loop 30 times: # 2 ticks * 30 = 60 ticks = 3 seconds
+		if {-kp::%{_p}'s uuid%::dash::active} is true:
+			stop loop
+			
+			# 背中付近から煙
+		set {_loc} to location of {_p}
+		add 1 to y-coord of {_loc}
+		draw 3 of campfire cosy smoke at {_loc} with delta vector(0.3, 0.5, 0.3) with extra 0.05
+		draw 2 of white ash at {_loc} with delta vector(0.2, 0.2, 0.2) with extra 0.01
+		
+		# 途中で蒸気音を追加 (0.5秒, 1.5秒, 2.5秒地点)
+		if loop-iteration is 5 or 15 or 25:
+			play sound "entity.creeper.primed" with volume 0.1 with pitch 2.0 to {_p}
+			
+		wait 2 ticks
+		
+every 2 ticks:
+	loop all players:
+		set {_p} to loop-player
+		
+		# QB用移動ベクトル算出 (Calculate movement vector)
+		set {_loc} to location of {_p}
+		if {-kp::%{_p}'s uuid%::last_loc} is set:
+			if distance between {_loc} and {-kp::%{_p}'s uuid%::last_loc} < 3: # テレポート除外
+				set {_move_vec} to vector from {-kp::%{_p}'s uuid%::last_loc} to {_loc}
+				set y of {_move_vec} to 0
+				set {-kp::%{_p}'s uuid%::move_vec} to {_move_vec}
+		set {-kp::%{_p}'s uuid%::last_loc} to {_loc}
+		
+		# ADチャージ処理
+		if {_p} is sprinting:
+			add 2 to {-kp::%{_p}'s uuid%::dash::charge}
+			if {-kp::%{_p}'s uuid%::dash::charge} >= {@DASH_CHARGE_TIME}:
+				if dash_is_active({_p}) is not true:
+					if en_get({_p}) > 0:
+						dash_start({_p})
+		else:
+			if dash_is_active({_p}) is true:
+				dash_stop({_p})
+			set {-kp::%{_p}'s uuid%::dash::charge} to 0
+			
+every {@DASH_EN_INTERVAL} ticks:
+	loop all players:
+		if dash_is_active(loop-player) is true:
+			if en_consume(loop-player, {@DASH_EN_COST}) is not true:
+				dash_stop(loop-player)
+				send "&c[EN] エネルギー不足！" to loop-player
+				
+on left click:
+	if dash_is_active(player) is true:
+		dash_stop(player)
+		
+on right click:
+	if dash_is_active(player) is true:
+		set {_tool_name} to name of type of player's tool
+		if {_tool_name} contains "sword":
+			dash_stop(player)
+		if {_tool_name} contains "axe":
+			dash_stop(player)
+			
+on swap hand items:
+	if gamemode of player is survival or adventure:
+		cancel event
+		dash_quick_boost(player)
+		
+function dash_quick_boost(p: player):
+# Cooldown
+	if {-kp::%{_p}'s uuid%::dash::qb_cooldown} is set:
+		if difference between {-kp::%{_p}'s uuid%::dash::qb_cooldown} and now < {@QB_COOLDOWN} ticks:
+			stop
+			
+			# EN Check
+	if en_consume({_p}, {@QB_COST}) is not true:
+	# managed by en_consume alert
+	# play sound "block.note_block.bass" with volume 0.5 with pitch 0.5 to {_p}
+		stop
+		
+	set {-kp::%{_p}'s uuid%::dash::qb_cooldown} to now
+	
+	# Vector Logic (Fixed)
+	set {_v} to {-kp::%{_p}'s uuid%::move_vec}
+	if {_v} is not set:
+		set {_v} to velocity of {_p}
+		set y of {_v} to 0
+		
+	if vector length of {_v} > 0.05:
+	# Moving: Boost in movement direction
+		set {_v} to normalized {_v}
+		# 地上なら少し浮かせて摩擦を減らす
+		if {_p} is on ground:
+			add {@QB_POWER_Y} to y of {_v}
+	else:
+	# Standing: Back boost logic
+		set {_v} to vector of {_p}
+		# multiply -1 (Component-wise)
+		set x of {_v} to x of {_v} * -1
+		set y of {_v} to y of {_v} * -1
+		set z of {_v} to z of {_v} * -1
+		
+		# 水平化して少し浮かせる
+		set y of {_v} to {@QB_POWER_Y}
+		set {_v} to normalized {_v}
+		
+		# Apply Boost
+	push {_p} vector {_v} at speed {@QB_POWER}
+	
+	# SFX
+	play sound "entity.firework_rocket.launch" with volume 0.5 with pitch 1.2 to {_p}
+	play sound "item.trident.riptide_1" with volume 0.5 with pitch 2 to {_p}
+	
+	# VFX (Flash + Cloud)
+	draw 1 of flash at location 1 meter behind {_p}
+	draw 5 of cloud at location 1 meter behind {_p} with delta vector(0.2, 0.2, 0.2) with extra 0.1
+	
+command /dash [<text>] [<text>]:
+	trigger:
+		if arg-1 is "color":
+			if arg-2 is set:
+				set {-kp::%player's uuid%::dash::color_mode} to arg-2
+				send "&d[Dash] &fColor set to &e%arg-2%" to player
+			else:
+				send "&d[Dash] &fUsage: /dash color <cyan|orange|red|purple>" to player
+			stop
+		set {_active} to dash_is_active(player)
+		set {_charge} to {-kp::%player's uuid%::dash::charge}
+		send "&d[Dash] &fActive: %{_active}% | Charge: %{_charge}% / {@DASH_CHARGE_TIME}" to player

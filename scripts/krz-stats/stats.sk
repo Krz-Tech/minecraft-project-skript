@@ -1,0 +1,94 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Stats Core
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# -------------------------------------------------------------------------
+
+options:
+	PREFIX: "&b[System] &f"
+	
+on load:
+	core_log("Stats module loaded.")
+	
+	# Initialize new player with default stats
+on join:
+	if {-kp::%player's uuid%::stats::hp} is not set:
+		stats_init(player)
+		
+		# -------------------------------------------------------------------------
+		# Function: stats_init
+		# Description: Initialize player stats with default values
+		# -------------------------------------------------------------------------
+function stats_init(p: player):
+	set {-kp::%{_p}'s uuid%::stats::hp} to 20
+	set {-kp::%{_p}'s uuid%::stats::def} to 0
+	set {-kp::%{_p}'s uuid%::stats::atk} to 1
+	set {-kp::%{_p}'s uuid%::stats::crit_rate} to 5
+	set {-kp::%{_p}'s uuid%::stats::crit_dmg} to 150
+	
+	# Apply max health
+	set max health of {_p} to {-kp::%{_p}'s uuid%::stats::hp}
+	
+	# -------------------------------------------------------------------------
+	# Function: stats_get
+	# Description: Get a player's stat value
+	# -------------------------------------------------------------------------
+function stats_get(p: player, stat: text) :: number:
+	if {-kp::%{_p}'s uuid%::stats::%{_stat}%} is set:
+		return {-kp::%{_p}'s uuid%::stats::%{_stat}%}
+	return 0
+	
+	# -------------------------------------------------------------------------
+	# Function: stats_set
+	# Description: Set a player's stat value
+	# -------------------------------------------------------------------------
+function stats_set(p: player, stat: text, value: number):
+	set {-kp::%{_p}'s uuid%::stats::%{_stat}%} to {_value}
+	
+	# Special handling for HP
+	if {_stat} is "hp":
+		set max health of {_p} to {_value}
+		
+		# -------------------------------------------------------------------------
+		# Function: stats_add
+		# Description: Add to a player's stat value
+		# -------------------------------------------------------------------------
+function stats_add(p: player, stat: text, value: number):
+	add {_value} to {-kp::%{_p}'s uuid%::stats::%{_stat}%}
+	
+	# Special handling for HP
+	if {_stat} is "hp":
+		set max health of {_p} to {-kp::%{_p}'s uuid%::stats::%{_stat}%}
+		
+		# -------------------------------------------------------------------------
+		# Commands
+		# -------------------------------------------------------------------------
+command /stats [<offline player>]:
+	trigger:
+		if arg-1 is not set:
+			set {_target} to player
+		else:
+			if player has permission "krz.stats.others":
+				set {_target} to arg-1
+			else:
+				core_msg(player, "no_permission")
+				stop
+				
+		set {_hp} to stats_get({_target}, "hp")
+		set {_def} to stats_get({_target}, "def")
+		set {_atk} to stats_get({_target}, "atk")
+		set {_crit_rate} to stats_get({_target}, "crit_rate")
+		set {_crit_dmg} to stats_get({_target}, "crit_dmg")
+		
+		send "%{@PREFIX}%===== %{_target}% のステータス =====" to player
+		send "%{@PREFIX}%HP: &f%{_hp}%" to player
+		send "%{@PREFIX}%DEF: &f%{_def}%" to player
+		send "%{@PREFIX}%ATK: &f%{_atk}%" to player
+		send "%{@PREFIX}%会心率: &f%{_crit_rate}%%%" to player
+		send "%{@PREFIX}%会心ダメージ: &f%{_crit_dmg}%%%" to player
+		
+command /setstats <offline player> <text> <number>:
+	permission: krz.admin
+	trigger:
+		stats_set(arg-1, arg-2, arg-3)
+		send "%{@PREFIX}%%arg-1% の %arg-2% を %arg-3% に設定しました。" to player

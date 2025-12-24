@@ -1,0 +1,173 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Combat Test EN Weapon
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# Description: Test weapon for EN ballistic correction (FCS homing)
+# -------------------------------------------------------------------------
+
+options:
+# Weapon settings
+	EN_COST: 10
+	PROJECTILE_SPEED: 2.0
+	DAMAGE: 8
+	COOLDOWN: 10
+	
+on load:
+	send "&3[EN Weapon] &fTest EN Weapon module loaded." to console
+	
+	# -------------------------------------------------------------------------
+	# Give Test Weapon Command
+	# -------------------------------------------------------------------------
+command /enweapon:
+	permission: op
+	trigger:
+		set {_weapon} to blaze rod named "&b&lEN Rifle &7[Test]"
+		set line 1 of lore of {_weapon} to "&7EN消費: &b{@EN_COST}"
+		set line 2 of lore of {_weapon} to "&7ダメージ: &c{@DAMAGE}"
+		set line 3 of lore of {_weapon} to "&7FCS弾道補正対応"
+		set line 4 of lore of {_weapon} to ""
+		set line 5 of lore of {_weapon} to "&e右クリックで発射"
+		give {_weapon} to player
+		send "&3[EN Weapon] &fテスト用ENライフルを取得しました" to player
+		
+		# -------------------------------------------------------------------------
+		# Fire EN Weapon (Right Click)
+		# -------------------------------------------------------------------------
+on right click with blaze rod:
+	if name of player's tool contains "EN Rifle":
+		cancel event
+		
+		# Check cooldown
+		if {-enweapon::%player's uuid%::cooldown} is set:
+			display_alert(player, "&c&lCOOLDOWN", 20)
+			stop
+			
+			# Check EN (use en_get instead of en_get_current)
+		set {_en} to en_get(player)
+		if {_en} < {@EN_COST}:
+			display_alert(player, "&c&lEN不足", 20)
+			play sound "block.note_block.bass" with volume 0.5 with pitch 0.5 to player
+			stop
+			
+			# Consume EN
+		en_consume(player, {@EN_COST})
+		
+		# Fire projectile
+		fire_en_projectile(player)
+		
+		# Set cooldown after firing
+		set {-enweapon::%player's uuid%::cooldown} to true
+		wait {@COOLDOWN} ticks
+		delete {-enweapon::%player's uuid%::cooldown}
+		
+		# -------------------------------------------------------------------------
+		# Function: fire_en_projectile
+		# Creates and launches EN projectile with FCS homing
+		# -------------------------------------------------------------------------
+function fire_en_projectile(p: player):
+# Spawn projectile (snowball for testing)
+	shoot a snowball from {_p} at speed {@PROJECTILE_SPEED}
+	set {_proj} to last shot projectile
+	
+	if {_proj} is not set:
+		stop
+		
+		# Tag projectile for FCS homing
+	set {-enweapon::projectile::%uuid of {_proj}%::shooter} to {_p}
+	set {-enweapon::projectile::%uuid of {_proj}%::damage} to {@DAMAGE}
+	
+	# Check if player has FCS lock
+	set {_target} to fcs_get_target({_p})
+	set {_locked} to fcs_is_locked({_p})
+	
+	if {_locked} is true:
+		if {_target} is set:
+			set {-enweapon::projectile::%uuid of {_proj}%::target} to {_target}
+			# Visual feedback
+			play sound "entity.experience_orb.pickup" with volume 0.3 with pitch 2 to {_p}
+		else:
+			play sound "entity.arrow.shoot" with volume 0.5 with pitch 1.2 to {_p}
+	else:
+		play sound "entity.arrow.shoot" with volume 0.5 with pitch 1.2 to {_p}
+		
+		# -------------------------------------------------------------------------
+		# EN Projectile Homing Loop
+		# -------------------------------------------------------------------------
+every 1 tick:
+	loop all snowballs:
+		set {_proj} to loop-snowball
+		set {_target} to {-enweapon::projectile::%uuid of {_proj}%::target}
+		
+		if {_target} is set:
+			if {_target} is not alive:
+				delete {-enweapon::projectile::%uuid of {_proj}%::target}
+			else if {_proj} is on ground:
+				delete {-enweapon::projectile::%uuid of {_proj}%::target}
+			else:
+			# Apply homing
+				en_apply_homing({_proj}, {_target})
+				
+				# Trail particle (using SkBee syntax)
+				draw 1 of flame at location of {_proj}
+				
+				# -------------------------------------------------------------------------
+				# Function: en_apply_homing
+				# Curves projectile toward locked target
+				# -------------------------------------------------------------------------
+function en_apply_homing(proj: projectile, target: entity):
+	set {_proj_loc} to location of {_proj}
+	set {_target_loc} to eye location of {_target}
+	
+	set {_vel} to velocity of {_proj}
+	set {_speed} to vector length of {_vel}
+	
+	set {_to_target} to vector from {_proj_loc} to {_target_loc}
+	set {_to_target} to normalized {_to_target}
+	
+	set {_current_dir} to normalized {_vel}
+	set {_dot} to {_current_dir} dot {_to_target}
+	
+	# Only home if target is somewhat ahead
+	if {_dot} > 0.3:
+		set {_strength} to 0.12
+		set {_inv_strength} to 1 - {_strength}
+		
+		set {_new_x} to (x of {_current_dir} * {_inv_strength}) + (x of {_to_target} * {_strength})
+		set {_new_y} to (y of {_current_dir} * {_inv_strength}) + (y of {_to_target} * {_strength})
+		set {_new_z} to (z of {_current_dir} * {_inv_strength}) + (z of {_to_target} * {_strength})
+		
+		set {_new_dir} to vector({_new_x}, {_new_y}, {_new_z})
+		set {_new_dir} to normalized {_new_dir}
+		
+		set {_new_vel_x} to x of {_new_dir} * {_speed}
+		set {_new_vel_y} to y of {_new_dir} * {_speed}
+		set {_new_vel_z} to z of {_new_dir} * {_speed}
+		set {_new_vel} to vector({_new_vel_x}, {_new_vel_y}, {_new_vel_z})
+		
+		set velocity of {_proj} to {_new_vel}
+		
+		# -------------------------------------------------------------------------
+		# EN Projectile Hit Detection
+		# -------------------------------------------------------------------------
+on projectile hit:
+	if projectile is snowball:
+		set {_shooter} to {-enweapon::projectile::%uuid of projectile%::shooter}
+		set {_damage} to {-enweapon::projectile::%uuid of projectile%::damage}
+		
+		if {_shooter} is set:
+		# Clean up
+			delete {-enweapon::projectile::%uuid of projectile%::shooter}
+			delete {-enweapon::projectile::%uuid of projectile%::target}
+			delete {-enweapon::projectile::%uuid of projectile%::damage}
+			
+			# Get hit entity
+			set {_hit} to hit entity
+			if {_hit} is set:
+				if {_hit} is a living entity:
+					if {_hit} is not {_shooter}:
+					# Apply damage
+						damage {_hit} by {_damage}
+						
+						# Hit effect
+						draw 5 of crit at location of {_hit}
+						play sound "entity.player.attack.crit" with volume 0.8 with pitch 1.2 at location of {_hit}

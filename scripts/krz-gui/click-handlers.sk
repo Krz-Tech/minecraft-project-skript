@@ -1,0 +1,59 @@
+# -------------------------------------------------------------------------
+# Module: Krz-GUI Click Handlers
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# Description: Handle GUI click events
+# -------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------
+# Main Menu Click Handler
+# -------------------------------------------------------------------------
+on inventory click:
+	if name of player's current inventory contains "メインメニュー":
+		cancel event
+		
+		if index of clicked slot is 11:  # Profile
+			gui_play_click(player)
+			close player's inventory
+			wait 1 tick
+			open_profile_menu(player)
+			
+		else if index of clicked slot is 31:  # Economy
+			gui_play_click(player)
+			close player's inventory
+			wait 1 tick
+			open_economy_menu(player)
+			
+		else if index of clicked slot is 49:  # Close
+			gui_play_close(player)
+			close player's inventory
+			
+			# -------------------------------------------------------------------------
+			# Profile Menu Click Handler
+			# -------------------------------------------------------------------------
+on inventory click:
+	if name of player's current inventory contains "プロフィール":
+		cancel event
+		
+		if index of clicked slot is 22:  # Back
+			gui_play_click(player)
+			close player's inventory
+			wait 1 tick
+			open_main_menu(player)
+			
+			# -------------------------------------------------------------------------
+			# Economy Menu Click Handler
+			# -------------------------------------------------------------------------
+on inventory click:
+	if name of player's current inventory contains "経済メニュー":
+		cancel event
+		
+		if index of clicked slot is 15:  # Shop (coming soon)
+			gui_play_click(player)
+			send "&6[Economy] &7建材ショップは現在開発中です。" to player
+			
+		else if index of clicked slot is 22:  # Back
+			gui_play_click(player)
+			close player's inventory
+			wait 1 tick
+			open_main_menu(player)

@@ -1,0 +1,207 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Core UI
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# Description: スコアボードとBossBarの管理システム（UXガイドライン準拠）
+# Note: SkBee (Board機能) + TAB Plugin (BossBar)
+# -------------------------------------------------------------------------
+
+options:
+# タイトル設定
+	TITLE_LOBBY: "&b&lTECH::PLAYGROUND"
+	TITLE_PG: "&c&lINCURSION ACTIVE"
+	
+	# 色設定
+	COLOR_MAIN: "&b"
+	COLOR_WARN: "&c"
+	COLOR_ECON: "&6"
+	COLOR_TEXT: "&f"
+	COLOR_SUB: "&7"
+	
+	# デバッグ設定
+	# true: ロビーなどPG以外のワールドでもBossBar変数を更新・表示
+	DEBUG_MODE: true
+	
+	# 更新間隔
+	UPDATE_INTERVAL: 1 second
+	
+	# -------------------------------------------------------------------------
+	# Function: ui_scoreboard_init
+	# Description: スコアボードの初期化
+	# -------------------------------------------------------------------------
+function ui_scoreboard_init(p: player):
+# SkBee FastBoard syntax: "board"
+	set title of board of {_p} to {@TITLE_LOBBY}
+	
+	# -------------------------------------------------------------------------
+	# Function: ui_scoreboard_lobby
+	# Description: ロビー用スコアボードの更新
+	# -------------------------------------------------------------------------
+function ui_scoreboard_lobby(p: player):
+	set title of board of {_p} to {@TITLE_LOBBY}
+	
+	# ユーザー情報
+	set line 11 of board of {_p} to "&8&m------------------"
+	set line 10 of board of {_p} to "&7ユーザー: &f%{_p}'s name%"
+	
+	# ランクとレベル
+	set {_uuid} to uuid of {_p}
+	set {_rank} to {-kp::%{_uuid}%::rank}
+	if {_rank} is not set:
+		set {_rank} to "F"
+		
+		# レベル情報の取得
+	set {_c_lv} to {level::combat::%{_uuid}%}
+	if {_c_lv} is not set:
+		set {_c_lv} to 1
+	set {_l_lv} to {level::life::%{_uuid}%}
+	if {_l_lv} is not set:
+		set {_l_lv} to 1
+		
+	set line 9 of board of {_p} to "&7ランク: &b%{_rank}%"
+	set line 8 of board of {_p} to "&7Lv: &3戦-%{_c_lv}% / 生-%{_l_lv}%"
+	
+	set line 7 of board of {_p} to "&r"
+	
+	# 経済情報
+	set {_coins} to {-kp::%{_uuid}%::coins}
+	if {_coins} is not set:
+		set {_coins} to 0
+	set line 6 of board of {_p} to "&7所持金: &6%{_coins}% Δ"
+	
+	# ストレージ情報（仮）
+	set {_st_u} to 0
+	set {_st_m} to 50
+	set line 5 of board of {_p} to "&7容量: &f%{_st_u}%/%{_st_m}%"
+	
+	set line 4 of board of {_p} to "&r "
+	
+	# 場所情報
+	set {_loc_name} to "Lobby"
+	set line 3 of board of {_p} to "&7場所: &f%{_loc_name}%"
+	set line 2 of board of {_p} to "&7接続: &bオンライン"
+	set line 1 of board of {_p} to "&7状態: &a良好"
+	
+	# -------------------------------------------------------------------------
+	# Function: ui_scoreboard_playground
+	# Description: プレイグラウンド用スコアボードの更新
+	# -------------------------------------------------------------------------
+function ui_scoreboard_playground(p: player):
+	set title of board of {_p} to {@TITLE_PG}
+	
+	set line 11 of board of {_p} to "&8&m------------------"
+	
+	# 危険度情報
+	set {_danger} to {pg::danger_level}
+	if {_danger} is not set:
+		set {_danger} to "B"
+	set line 10 of board of {_p} to "&7危険度: &cクラス-%{_danger}%"
+	
+	set {_integrity} to {pg::suit_integrity::%uuid of {_p}%}
+	if {_integrity} is not set:
+		set {_integrity} to "安定"
+	set line 9 of board of {_p} to "&7耐久値: &a%{_integrity}%"
+	
+	set line 8 of board of {_p} to "&r"
+	
+	# セッション情報
+	set {_loot} to {pg::session::loot::%uuid of {_p}%}
+	if {_loot} is not set:
+		set {_loot} to 0
+	set {_kills} to {pg::session::kills::%uuid of {_p}%}
+	if {_kills} is not set:
+		set {_kills} to 0
+		
+	set line 7 of board of {_p} to "&7推定価値: &6+%{_loot}% Δ"
+	set line 6 of board of {_p} to "&7撃破数: &c%{_kills}%"
+	
+	set line 5 of board of {_p} to "&r "
+	
+	# 帰還情報
+	set {_dist} to {pg::dist_to_exit::%uuid of {_p}%}
+	if {_dist} is not set:
+		set {_dist} to 0
+	set {_time} to {pg::time_limit::%uuid of {_p}%}
+	if {_time} is not set:
+		set {_time} to "--:--"
+		
+	set line 4 of board of {_p} to "&7帰還距離: &b%{_dist}%m"
+	set line 3 of board of {_p} to "&7制限時間: &f%{_time}%"
+	
+	set line 2 of board of {_p} to "&r  "
+	
+	set {_exp} to {pg::session::exp::%uuid of {_p}%}
+	if {_exp} is not set:
+		set {_exp} to 0
+	set line 1 of board of {_p} to "&7経験値: &a+%{_exp}%"
+	
+	# -------------------------------------------------------------------------
+	# Function: ui_bossbar_playground
+	# Description: プレイグラウンド用BossBarの更新 (TAB Plugin連携)
+	# Note: 表示はTABプラグインが {-kp::%player%::bb::*} 変数を監視して行う
+	# -------------------------------------------------------------------------
+function ui_bossbar_playground(p: player):
+	set {_uuid} to uuid of {_p}
+	
+	# データ取得
+	set {_dist} to {pg::dist_to_exit::%uuid of {_p}%}
+	# broadcast "[Debug UI] Dist for %{_p}%: %{_dist}%"
+	if {_dist} is not set:
+		set {_dist} to 0
+	set {_time} to {pg::time_limit::%uuid of {_p}%}
+	if {_time} is not set:
+		set {_time} to "--:--"
+		
+		# 帰還可能条件と表示内容決定
+	if {_dist} <= 0:
+		set {_color} to "RED"
+		set {_msg} to "&c&lVANISH AVAILABLE &7| &fPress /vanish"
+	else:
+		set {_color} to "BLUE"
+		set {_msg} to "&f帰還可能まで: &b残り %{_dist}%m &7/ &b%{_time}%"
+		
+		# 進捗計算 (仮: 100固定)
+	set {_progress} to 100
+	
+	# プレースホルダー用変数の更新
+	set {-kp::%{_p}%::bb::text} to {_msg}
+	set {-kp::%{_p}%::bb::progress} to {_progress}
+	set {-kp::%{_p}%::bb::color} to {_color}
+	set {-kp::%{_p}%::bb::style} to "PROGRESS"
+	
+	# -------------------------------------------------------------------------
+	# Function: ui_bossbar_remove
+	# Description: BossBar用変数のクリア
+	# -------------------------------------------------------------------------
+function ui_bossbar_remove(p: player):
+	delete {-kp::%{_p}%::bb::*}
+	
+	# -------------------------------------------------------------------------
+	# System: 更新ループ
+	# -------------------------------------------------------------------------
+every {@UPDATE_INTERVAL}:
+	loop all players:
+	# ワールドチェック (Test: world)
+		if loop-player's world is "world":
+			ui_scoreboard_playground(loop-player)
+			ui_bossbar_playground(loop-player)
+		else:
+			ui_scoreboard_lobby(loop-player)
+			
+			# BossBar更新 (デバッグモードなら変数更新を続ける)
+			set {_debug} to {@DEBUG_MODE}
+			if {_debug} is true:
+				ui_bossbar_playground(loop-player)
+			else:
+				ui_bossbar_remove(loop-player)
+				
+				# -------------------------------------------------------------------------
+				# Event: Join/Quit
+				# -------------------------------------------------------------------------
+on join:
+	wait 3 seconds
+	ui_scoreboard_init(player)
+	
+on quit:
+# Sidebarクリア: Quit時は自動的にクリアされるため明示的なリセットを省略
+	ui_bossbar_remove(player)

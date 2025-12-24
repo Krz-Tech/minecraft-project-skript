@@ -1,0 +1,92 @@
+# -------------------------------------------------------------------------
+# Module: Krz-GUI Utils
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# Description: GUI utility functions and sound effects
+# -------------------------------------------------------------------------
+
+options:
+	BACKGROUND: gray stained glass pane
+	BORDER: black stained glass pane
+	CLOSE_BUTTON: barrier
+	
+	# -------------------------------------------------------------------------
+	# Function: gui_play_open
+	# Description: Play GUI open sound
+	# -------------------------------------------------------------------------
+function gui_play_open(p: player):
+	play sound "block.chest.open" with volume 1 with pitch 1 to {_p}
+	
+	# -------------------------------------------------------------------------
+	# Function: gui_play_close
+	# Description: Play GUI close sound
+	# -------------------------------------------------------------------------
+function gui_play_close(p: player):
+	play sound "block.chest.close" with volume 1 with pitch 1 to {_p}
+	
+	# -------------------------------------------------------------------------
+	# Function: gui_play_click
+	# Description: Play button click sound
+	# -------------------------------------------------------------------------
+function gui_play_click(p: player):
+	play sound "ui.button.click" with volume 1 with pitch 1 to {_p}
+	
+	# -------------------------------------------------------------------------
+	# Function: gui_play_error
+	# Description: Play error sound
+	# -------------------------------------------------------------------------
+function gui_play_error(p: player):
+	play sound "entity.villager.no" with volume 1 with pitch 1 to {_p}
+	
+	# -------------------------------------------------------------------------
+	# Function: gui_create_item
+	# Description: Create a GUI item with name and lore
+	# -------------------------------------------------------------------------
+function gui_create_item(material: item type, name: text, lore: texts) :: item:
+	set {_item} to {_material}
+	set name of {_item} to {_name}
+	set lore of {_item} to {_lore}
+	return {_item}
+	
+	# -------------------------------------------------------------------------
+	# Function: gui_create_close_button
+	# Description: Create a standard close button
+	# -------------------------------------------------------------------------
+function gui_create_close_button() :: item:
+	set {_lore::*} to "&7メニューを閉じます", "&r", "&8▶ &fクリックで閉じる"
+	return gui_create_item(barrier, "&c閉じる", {_lore::*})
+	
+	# -------------------------------------------------------------------------
+	# Function: gui_create_back_button
+	# Description: Create a standard back button
+	# -------------------------------------------------------------------------
+function gui_create_back_button() :: item:
+	set {_lore::*} to "&7前のメニューに戻ります", "&r", "&8▶ &fクリックで戻る"
+	return gui_create_item(arrow, "&7戻る", {_lore::*})
+	
+	# -------------------------------------------------------------------------
+	# Function: gui_create_coming_soon
+	# Description: Create a "coming soon" placeholder item
+	# -------------------------------------------------------------------------
+function gui_create_coming_soon(name: text) :: item:
+	set {_lore::*} to "&7この機能は開発中です", "&r", "&8準備中..."
+	return gui_create_item(paper, "&7%{_name}% &8(準備中)", {_lore::*})
+	
+	# -------------------------------------------------------------------------
+	# Function: gui_create_bar
+	# Description: Create a progress bar string
+	# -------------------------------------------------------------------------
+function gui_create_bar(current: number, max: number, length: number, color: text) :: text:
+	set {_percent} to ({_current} / {_max})
+	set {_filled} to floor({_percent} * {_length})
+	set {_empty} to {_length} - {_filled}
+	
+	set {_bar} to "%{_color}%"
+	loop {_filled} times:
+		set {_bar} to "%{_bar}%|"
+		
+	set {_bar} to "%{_bar}%&f"
+	loop {_empty} times:
+		set {_bar} to "%{_bar}%|"
+		
+	return {_bar}

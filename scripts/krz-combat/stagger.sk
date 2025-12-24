@@ -1,0 +1,131 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Combat Stagger System
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# Description: Impact accumulation and stagger mechanics
+# -------------------------------------------------------------------------
+
+options:
+	STAGGER_MAX_DEFAULT: 100
+	STAGGER_DECAY_RATE: 3
+	STAGGER_DECAY_INTERVAL: 10
+	STAGGER_DURATION: 40
+	
+on load:
+	send "&c[Stagger] &fStagger module loaded." to console
+	
+on join:
+	wait 5 ticks
+	stagger_init(player)
+	
+function stagger_init(p: player):
+	if {-kp::%{_p}'s uuid%::stagger::max} is not set:
+		set {-kp::%{_p}'s uuid%::stagger::max} to {@STAGGER_MAX_DEFAULT}
+	if {-kp::%{_p}'s uuid%::stagger::current} is not set:
+		set {-kp::%{_p}'s uuid%::stagger::current} to 0
+	set {-kp::%{_p}'s uuid%::stagger::active} to false
+	
+function stagger_get(p: player) :: number:
+	if {-kp::%{_p}'s uuid%::stagger::current} is not set:
+		stagger_init({_p})
+	return {-kp::%{_p}'s uuid%::stagger::current}
+	
+function stagger_get_max(p: player) :: number:
+	if {-kp::%{_p}'s uuid%::stagger::max} is not set:
+		stagger_init({_p})
+	return {-kp::%{_p}'s uuid%::stagger::max}
+	
+function stagger_add_impact(p: player, impact: number):
+	if {-kp::%{_p}'s uuid%::stagger::active} is true:
+		stop
+	set {_current} to stagger_get({_p})
+	set {_max} to stagger_get_max({_p})
+	set {_new} to {_current} + {_impact}
+	if {_new} > {_max}:
+		set {_new} to {_max}
+	set {-kp::%{_p}'s uuid%::stagger::current} to {_new}
+	if {_new} >= {_max}:
+		stagger_trigger({_p})
+		
+function stagger_trigger(p: player):
+	set {-kp::%{_p}'s uuid%::stagger::active} to true
+	set {-kp::%{_p}'s uuid%::stagger::current} to 0
+	
+	# 移動完全停止（slowness 255 = 完全停止）
+	apply slowness 255 to {_p} for 2.5 seconds
+	# 視野角低下・視覚効果
+	apply slow falling to {_p} for 2.5 seconds
+	apply blindness 1 to {_p} for 0.5 seconds
+	# 攻撃・採掘不可
+	apply mining fatigue 255 to {_p} for 2 seconds
+	apply weakness 255 to {_p} for 2 seconds
+	
+	# 効果音
+	sfx_stagger({_p})
+	
+	# タイトル表示
+	# send title "&c&l!! STAGGER !!" with subtitle "&7体勢を崩された！" to {_p} for 1.5 seconds
+	
+	# フローティング表示
+	set {_loc} to location of {_p}
+	display_show_stagger({_loc}, "break", 0)
+	
+	# パーティクルエフェクトループ
+	stagger_particle_loop({_p})
+	
+	wait {@STAGGER_DURATION} ticks
+	set {-kp::%{_p}'s uuid%::stagger::active} to false
+	# 復帰時のフィードバック
+	play sound "entity.player.levelup" with volume 0.3 with pitch 2.0 to {_p}
+	display_alert({_p}, "&aRebooting ACS..._", 40)
+	
+function stagger_particle_loop(p: player):
+	loop 20 times:
+		if {-kp::%{_p}'s uuid%::stagger::active} is not true:
+			stop
+		set {_loc} to location of {_p}
+		add 1 to y-coord of {_loc}
+		# 電撃パーティクル
+		draw 5 of electric spark at {_loc}
+		# 煙エフェクト
+		draw 3 of large smoke at {_loc}
+		wait 2 ticks
+		
+function stagger_is_active(p: player) :: boolean:
+	if {-kp::%{_p}'s uuid%::stagger::active} is true:
+		return true
+	return false
+	
+every {@STAGGER_DECAY_INTERVAL} ticks:
+	loop all players:
+		if {-kp::%loop-player's uuid%::stagger::active} is not true:
+			set {_current} to {-kp::%loop-player's uuid%::stagger::current}
+			if {_current} is set:
+				if {_current} > 0:
+					set {_new} to {_current} - {@STAGGER_DECAY_RATE}
+					if {_new} < 0:
+						set {_new} to 0
+					set {-kp::%loop-player's uuid%::stagger::current} to {_new}
+					
+command /stagger [<text=status>] [<number=0>]:
+	trigger:
+		if arg-1 is "status":
+			set {_current} to stagger_get(player)
+			set {_max} to stagger_get_max(player)
+			set {_active} to stagger_is_active(player)
+			send "&c[Stagger] &f%{_current}% / %{_max}% (Active: %{_active}%)" to player
+		else if arg-1 is "trigger":
+			stagger_trigger(player)
+			send "&c[Stagger] &fスタッガーを発動しました" to player
+		else if arg-1 is "set":
+			set {-kp::%player's uuid%::stagger::current} to arg-2
+			send "&c[Stagger] &fスタッガー値を %arg-2% に設定しました" to player
+		else if arg-1 is "add":
+			stagger_add_impact(player, arg-2)
+			send "&c[Stagger] &f衝撃 %arg-2% を追加しました" to player
+		else:
+			send "&c[Stagger] 使用法:" to player
+			send "&7  /stagger &f- 現在の状態を確認" to player
+			send "&7  /stagger trigger &f- スタッガーを発動" to player
+			send "&7  /stagger set [値] &f- スタッガー値を設定" to player
+			send "&7  /stagger add [値] &f- 衝撃を追加" to player

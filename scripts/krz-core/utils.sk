@@ -1,0 +1,28 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Core Utils
+# Author: Antigravity Agent
+# Since: 2025-12-23
+# -------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------
+# Function: core_log
+# Description: Logs a message to the console with the standard prefix.
+# -------------------------------------------------------------------------
+function core_log(msg: text):
+    send "%{-krz::config::prefix}% %{_msg}%" to console
+
+# -------------------------------------------------------------------------
+# Function: core_format_money
+# Description: Formats a number into a currency string (e.g. "1,000c").
+# -------------------------------------------------------------------------
+function core_format_money(amount: number) :: text:
+    set {_formatted} to "%{_amount}%"
+    # Basic formatting logic could go here, for now simple suffix
+    return "%{_formatted}%c"
+
+# -------------------------------------------------------------------------
+# Function: core_broadcast
+# Description: Broadcasts a message to all players.
+# -------------------------------------------------------------------------
+function core_broadcast(msg: text):
+    broadcast "%{-krz::config::prefix}% %{_msg}%"
