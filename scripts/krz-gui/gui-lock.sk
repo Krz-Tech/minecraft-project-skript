@@ -1,0 +1,94 @@
+# -------------------------------------------------------------------------
+# Module: Krz-GUI Lock Core
+# Author: Antigravity Agent
+# Since: 2025-12-26
+# Description: 汎用GUIスロット保護システム
+# -------------------------------------------------------------------------
+
+options:
+	PREFIX: "&7[GUI] &r"
+	
+	# -------------------------------------------------------------------------
+	# Functions
+	# -------------------------------------------------------------------------
+	
+	# GUI保護を有効化 (指定スロットのみ許可)
+	# allowed_slots: 許可するスロット番号のリスト (Top Inventory)
+function gui_lock_enable(p: player, allowed_slots: numbers):
+	set {-gui::%{_p}'s uuid%::lock::active} to true
+	delete {-gui::%{_p}'s uuid%::lock::allowed::*}
+	loop {_allowed_slots::*}:
+		set {-gui::%{_p}'s uuid%::lock::allowed::%loop-value%} to true
+		
+		# GUI保護を無効化
+function gui_lock_disable(p: player):
+	delete {-gui::%{_p}'s uuid%::lock::active}
+	delete {-gui::%{_p}'s uuid%::lock::allowed::*}
+	
+	# -------------------------------------------------------------------------
+	# Event: Inventory Click (Global Guard)
+	# -------------------------------------------------------------------------
+on inventory click:
+	if {-gui::%player's uuid%::lock::active} is not set:
+		stop
+		
+		# ---------------------------------------------------------
+		# Inventory Context Check
+		# ---------------------------------------------------------
+		
+		# Case 1: Player Inventory Click (Bottom)
+	if clicked inventory is player's inventory:
+	# Shiftクリック制限 (GUIへ移動する場合、許可スロット行きか判定困難なため一律禁止など)
+		if "%click type%" contains "SHIFT":
+			cancel event
+			send "&cこの画面ではShift移動は使用できません" to player
+		else:
+		# 通常のクリックは許可
+			stop
+			
+			# Case 2: Top Inventory Click (GUI)
+	else:
+		set {_slot} to index of event-slot
+		# 許可リスト判定
+		if {-gui::%player's uuid%::lock::allowed::%{_slot}%} is set:
+		# 許可スロット: OK
+			stop
+		else:
+		# 未許可スロット: キャンセル
+			cancel event
+			# send "&cこのスロットはロックされています" to player
+			# 頻繁に出ると邪魔なので、アクションバーに戻すか、音だけにする
+			play sound "block.note_block.bass" with volume 0.5 with pitch 2 to player
+			
+			# -------------------------------------------------------------------------
+			# Event: Inventory Drag (Global Guard)
+			# -------------------------------------------------------------------------
+on inventory drag:
+	if {-gui::%player's uuid%::lock::active} is not set:
+		stop
+		
+		# ドラッグ対象のスロットをチェック
+	loop event-slots:
+	# Top Inventoryのスロットか？
+	# (SkriptのInventory Dragのslotsはraw slot indexを返すことが多い)
+	# 簡易的な判定として、GUI保護中はドラッグ自体をTopに対して禁止する
+	
+	# Dragging is complex to validate precisely per slot. 
+	# For safety in strict GUIs, cancel drag if it involves top inventory.
+	
+	# Check if raw slot is in top inventory (0 to size-1)
+		set {_s} to index of loop-value
+		
+		# Check if raw slot is in top inventory (0 to size-1)
+		if {_s} < rows of event-inventory * 9:
+		# 許可スロットかチェック
+			if {-gui::%player's uuid%::lock::allowed::%{_s}%} is not set:
+				cancel event
+				stop
+				
+				# -------------------------------------------------------------------------
+				# Event: Inventory Close (Cleanup)
+				# -------------------------------------------------------------------------
+on inventory close:
+	if {-gui::%player's uuid%::lock::active} is set:
+		gui_lock_disable(player)

@@ -1,0 +1,256 @@
+# -------------------------------------------------------------------------
+# Module: Krz-GUI Assembly Menu
+# Author: Antigravity Agent
+# Since: 2025-12-26
+# Description: Tech Suit / Weapon / Accessory 装備管理GUI (Sub-menu Flow)
+# -------------------------------------------------------------------------
+
+options:
+	TITLE_MAIN: "&b&lASSEMBLY"
+	TITLE_SUIT: "&6&lSuit を装備"
+	TITLE_WEAPON: "&e&lWeapon を装備"
+	TITLE_ACC: "&a&lAccessory を装備"
+	
+on load:
+	send "&6[Assembly] &aAssembly GUI 初期化完了 (Sub-menu Flow)" to console
+	
+	# -------------------------------------------------------------------------
+	# Command: /assembly
+	# -------------------------------------------------------------------------
+command /assembly:
+	trigger:
+		open_assembly_menu(player)
+		
+		# -------------------------------------------------------------------------
+		# Function: open_assembly_menu (Main Hub)
+		# -------------------------------------------------------------------------
+function open_assembly_menu(p: player):
+	set {_gui} to chest inventory with 6 rows named "&b&lASSEMBLY"
+	open {_gui} to {_p}
+	wait 1 tick
+	gui_play_open({_p})
+	
+	# Background fill
+	loop 54 times:
+		set slot loop-number - 1 of {_p}'s current inventory to gray stained glass pane named "&r"
+		
+		# ===== Suit Slot (Center) =====
+	set {_suit} to {-kp::%{_p}'s uuid%::equip::suit}
+	if {_suit} is set:
+		set {_suit_display} to {_suit}
+		set lore of {_suit_display} to lore of {_suit}, "&r", "&e▶ クリックで変更/解除"
+		set slot 22 of {_p}'s current inventory to {_suit_display}
+	else:
+		set {_empty_suit} to iron chestplate named "&7[ Suit Slot ]" with lore "&8Tech Suitを装備するスロットです", "&r", "&e▶ クリックでSuitを装備"
+		set slot 22 of {_p}'s current inventory to {_empty_suit}
+		
+		# ===== Weapon Slots =====
+	set {_w1} to {-kp::%{_p}'s uuid%::equip::weapon::1}
+	if {_w1} is set:
+		set slot 20 of {_p}'s current inventory to {_w1}
+	else:
+		set {_empty_w1} to iron sword named "&7[ Weapon 1 ]" with lore "&8主武器スロット", "&r", "&e▶ クリック"
+		set slot 20 of {_p}'s current inventory to {_empty_w1}
+		
+	set {_w2} to {-kp::%{_p}'s uuid%::equip::weapon::2}
+	if {_w2} is set:
+		set slot 24 of {_p}'s current inventory to {_w2}
+	else:
+		set {_empty_w2} to iron sword named "&7[ Weapon 2 ]" with lore "&8副武器スロット", "&r", "&e▶ クリック"
+		set slot 24 of {_p}'s current inventory to {_empty_w2}
+		
+		# ===== Accessory Slots =====
+	set {_max_acc} to equip_get_accessory_slot_count({_p})
+	loop {_max_acc} times:
+		set {_slot_num} to 37 + loop-number - 1
+		set {_acc} to {-kp::%{_p}'s uuid%::equip::acc::%loop-number%}
+		if {_acc} is set:
+			set slot {_slot_num} of {_p}'s current inventory to {_acc}
+		else:
+			set {_empty_acc} to paper named "&7[ Accessory %loop-number% ]" with lore "&8アクセサリスロット", "&r", "&e▶ クリック"
+			set slot {_slot_num} of {_p}'s current inventory to {_empty_acc}
+			
+			# ===== Stats Display =====
+	set {_en} to {-kp::%{_p}'s uuid%::stat::en_max}
+	set {_stab} to {-kp::%{_p}'s uuid%::stat::stability}
+	set {_wt} to {-kp::%{_p}'s uuid%::stat::weight}
+	set {_hp} to {-kp::%{_p}'s uuid%::stat::hp_bonus}
+	if {_en} is not set:
+		set {_en} to 100
+	if {_stab} is not set:
+		set {_stab} to 100
+	if {_wt} is not set:
+		set {_wt} to 50
+	if {_hp} is not set:
+		set {_hp} to 0
+		
+	set {_stats_item} to nether star named "&b&lSTATUS" with lore "&7━━━━━━━━━━━━━━━━", "&7▸ &fEN Max: &b%{_en}%", "&7▸ &fStability: &a%{_stab}%", "&7▸ &fWeight: &c%{_wt}%", "&7▸ &fHP Bonus: &d+%{_hp}%", "&7━━━━━━━━━━━━━━━━"
+	set slot 4 of {_p}'s current inventory to {_stats_item}
+	
+	# ===== Close Button =====
+	set slot 49 of {_p}'s current inventory to gui_create_close_button()
+	
+	# ===== Decorative Border =====
+	set slot 0 of {_p}'s current inventory to blue stained glass pane named "&r"
+	set slot 8 of {_p}'s current inventory to blue stained glass pane named "&r"
+	
+	# -------------------------------------------------------------------------
+	# Function: open_equip_submenu
+	# Description: 1スロットのサブメニューを開く (アイテム移動可能)
+	# -------------------------------------------------------------------------
+function open_equip_submenu(p: player, slot_type: text, slot_num: number):
+# サブメニュー識別子を変数に保存
+	set {-kp::%{_p}'s uuid%::assembly::pending_type} to {_slot_type}
+	set {-kp::%{_p}'s uuid%::assembly::pending_num} to {_slot_num}
+	
+	# タイトルを決定
+	if {_slot_type} is "suit":
+		set {_title} to "&6&lSuit を装備"
+	else if {_slot_type} is "weapon":
+		set {_title} to "&e&lWeapon %{_slot_num}% を装備"
+	else:
+		set {_title} to "&a&lAccessory %{_slot_num}% を装備"
+		
+		# 1行のGUIを開く (スロット0にアイテムを置ける)
+	set {_gui} to chest inventory with 1 row named {_title}
+	open {_gui} to {_p}
+	wait 1 tick
+	
+	# GUIロックを有効化 (スロット4のみ許可)
+	# GUIでは Slot 4 が中央 (0-8)
+	gui_lock_enable({_p}, 4)
+	
+	# 背景
+	loop 9 times:
+		set slot loop-number - 1 of {_p}'s current inventory to gray stained glass pane named "&r"
+		
+		# 中央スロット(4)を空にして、アイテムを置けるようにする
+	set slot 4 of {_p}'s current inventory to air
+	
+	# 既存の装備があればスロットに表示
+	if {_slot_type} is "suit":
+		set {_current} to {-kp::%{_p}'s uuid%::equip::suit}
+	else if {_slot_type} is "weapon":
+		set {_current} to {-kp::%{_p}'s uuid%::equip::weapon::%{_slot_num}%}
+	else:
+		set {_current} to {-kp::%{_p}'s uuid%::equip::acc::%{_slot_num}%}
+		
+	if {_current} is set:
+		set slot 4 of {_p}'s current inventory to {_current}
+		
+	gui_play_click({_p})
+	
+	# -------------------------------------------------------------------------
+	# Click Handler: Main Assembly Menu
+	# -------------------------------------------------------------------------
+on inventory click:
+	if name of player's current inventory is "&b&lASSEMBLY":
+		cancel event
+		
+		set {_slot} to index of event-slot
+		
+		# Close button
+		if {_slot} is 49:
+			close player's inventory
+			gui_play_close(player)
+			stop
+			
+			# Suit Slot (22)
+		if {_slot} is 22:
+			open_equip_submenu(player, "suit", 0)
+			stop
+			
+			# Weapon 1 (20)
+		if {_slot} is 20:
+			open_equip_submenu(player, "weapon", 1)
+			stop
+			
+			# Weapon 2 (24)
+		if {_slot} is 24:
+			open_equip_submenu(player, "weapon", 2)
+			stop
+			
+			# Accessory Slots (37-42)
+		if {_slot} >= 37 and {_slot} <= 42:
+			set {_acc_num} to {_slot} - 36
+			set {_max_acc} to equip_get_accessory_slot_count(player)
+			if {_acc_num} <= {_max_acc}:
+				open_equip_submenu(player, "accessory", {_acc_num})
+			stop
+			
+			# -------------------------------------------------------------------------
+			# Click Handler: Equip Sub-menu (アイテム移動を許可)
+			# -------------------------------------------------------------------------
+			# NOTE: GUI Lock logic handled by gui-lock.sk
+			# We only need to handle closing logic here.
+on inventory click:
+	set {_title} to name of player's current inventory
+	if {_title} contains "を装備":
+	# プレイヤーインベントリ（下部）のクリックは常に許可
+		if clicked inventory is not event-inventory:
+			stop
+			
+			# -------------------------------------------------------------------------
+			# Close Handler: Equip Sub-menu
+			# -------------------------------------------------------------------------
+on inventory close:
+	set {_title} to name of event-inventory
+	
+	# Assembly メインメニューを閉じた場合
+	if {_title} is "&b&lASSEMBLY":
+		gui_play_close(player)
+		stop
+		
+		# サブメニューを閉じた場合 (装備処理を実行)
+	if {_title} contains "を装備":
+		set {_type} to {-kp::%player's uuid%::assembly::pending_type}
+		set {_num} to {-kp::%player's uuid%::assembly::pending_num}
+		
+		# スロット4にあるアイテムを取得
+		set {_item} to slot 4 of event-inventory
+		
+		# アイテムがあれば検証して装備
+		if {_item} is set:
+			if {_item} is not air:
+				set {_nbt} to custom nbt of {_item}
+				set {_flag} to int tag "TechItem" of {_nbt}
+				
+				if {_flag} is 1:
+				# 有効なTech Item - 装備する
+					if {_type} is "suit":
+						set {-kp::%player's uuid%::equip::suit} to {_item}
+						send "&a[Assembly] &fSuit を装備しました: &b%name of {_item}%" to player
+					else if {_type} is "weapon":
+						set {-kp::%player's uuid%::equip::weapon::%{_num}%} to {_item}
+						send "&a[Assembly] &fWeapon %{_num}% を装備しました: &e%name of {_item}%" to player
+					else:
+						set {-kp::%player's uuid%::equip::acc::%{_num}%} to {_item}
+						send "&a[Assembly] &fAccessory %{_num}% を装備しました: &a%name of {_item}%" to player
+						
+					stat_sync(player)
+					play sound "block.anvil.use" with volume 0.5 with pitch 1.5 to player
+				else:
+				# 無効なアイテム - プレイヤーに返す
+					give {_item} to player
+					send "&c[Assembly] &fこれはTech装備ではありません" to player
+					gui_play_error(player)
+			else:
+			# スロットが空 = 装備解除
+				if {_type} is "suit":
+					delete {-kp::%player's uuid%::equip::suit}
+					send "&7[Assembly] &fSuit を解除しました" to player
+				else if {_type} is "weapon":
+					delete {-kp::%player's uuid%::equip::weapon::%{_num}%}
+					send "&7[Assembly] &fWeapon %{_num}% を解除しました" to player
+				else:
+					delete {-kp::%player's uuid%::equip::acc::%{_num}%}
+					send "&7[Assembly] &fAccessory %{_num}% を解除しました" to player
+				stat_sync(player)
+				
+				# 変数クリア
+		delete {-kp::%player's uuid%::assembly::pending_type}
+		delete {-kp::%player's uuid%::assembly::pending_num}
+		
+		# アセンブリ画面に戻る
+		wait 1 tick
+		open_assembly_menu(player)

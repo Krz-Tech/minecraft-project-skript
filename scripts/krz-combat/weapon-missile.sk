@@ -1,0 +1,178 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Combat Missile System
+# Author: Antigravity Agent
+# Since: 2025-12-26
+# Description: VLS型ミサイル（発射→停滞→上昇→追尾→爆発）
+# -------------------------------------------------------------------------
+
+options:
+	PREFIX: "&c[Missile] &r"
+	
+on load:
+	send "%{@PREFIX}%&aMissile System Initialized" to console
+	# Clean up any leftover missiles
+	loop all armor stands:
+		if scoreboard tags of loop-entity contains "krz_missile":
+			kill loop-entity
+			
+			# -------------------------------------------------------------------------
+			# Function: missile_fire
+			# Description: ミサイル発射（VLS型）
+			# -------------------------------------------------------------------------
+function missile_fire(shooter: player, atk: number, impact: number, power: number):
+	set {_start} to eye location of {_shooter}
+	set {_yaw} to yaw of {_shooter}
+	set {_pitch} to pitch of {_shooter}
+	set {_dir} to vector from yaw {_yaw} and pitch {_pitch}
+	set {_dir} to normalized {_dir}
+	set {_spawn_loc} to {_start} offset by ({_dir} * 1)
+	
+	spawn armor stand at {_spawn_loc}
+	set {_missile} to last spawned entity
+	add "krz_missile" to scoreboard tags of {_missile}
+	add "krz_vfx" to scoreboard tags of {_missile}
+	set visibility of {_missile} to false
+	set gravity of {_missile} to false
+	
+	set {-missile::%uuid of {_missile}%::shooter} to {_shooter}
+	set {-missile::%uuid of {_missile}%::atk} to {_atk}
+	set {-missile::%uuid of {_missile}%::impact} to {_impact}
+	set {-missile::%uuid of {_missile}%::power} to {_power}
+	set {-missile::%uuid of {_missile}%::dir} to {_dir}
+	
+	if fcs_is_locked({_shooter}) is true:
+		set {_target} to fcs_get_target({_shooter})
+		if {_target} is set:
+			if {_target} is alive:
+				set {-missile::%uuid of {_missile}%::target} to {_target}
+				
+	play sound "entity.firework_rocket.launch" with volume 1.0 with pitch 0.5 to {_shooter}
+	play sound "entity.wither.shoot" with volume 0.5 with pitch 0.8 to {_shooter}
+	missile_update({_missile})
+	
+	# -------------------------------------------------------------------------
+	# Function: missile_update
+	# -------------------------------------------------------------------------
+function missile_update(missile: entity):
+	set {_uuid} to uuid of {_missile}
+	set {_shooter} to {-missile::%{_uuid}%::shooter}
+	set {_atk} to {-missile::%{_uuid}%::atk}
+	set {_impact} to {-missile::%{_uuid}%::impact}
+	set {_power} to {-missile::%{_uuid}%::power}
+	set {_dir} to {-missile::%{_uuid}%::dir}
+	set {_target} to {-missile::%{_uuid}%::target}
+	set {_phase} to 1
+	set {_tick} to 0
+	set {_max_ticks} to 200
+	
+	while {_missile} is valid:
+		add 1 to {_tick}
+		if {_tick} > {_max_ticks}:
+			missile_explode({_missile}, {_shooter}, {_atk}, {_impact}, {_power})
+			stop
+		set {_loc} to location of {_missile}
+		
+		if {_phase} is 1:
+			set {_speed} to 0.3
+			set {_move} to {_dir} * {_speed}
+			teleport {_missile} to {_loc} offset by {_move}
+			draw 1 of cloud at {_loc} with delta vector(0,0,0) with extra 0 with force
+			draw 1 of smoke at {_loc} with delta vector(0,0,0) with extra 0 with force
+			draw 1 of flame at {_loc} with delta vector(0,0,0) with extra 0 with force
+			if {_tick} >= 10:
+				set {_phase} to 2
+				set {_tick} to 0
+		else if {_phase} is 2:
+			draw 2 of cloud at {_loc} with delta vector(0,0,0) with extra 0 with force
+			draw 2 of smoke at {_loc} with delta vector(0,0,0) with extra 0 with force
+			play sound "block.fire.extinguish" with volume 0.3 with pitch 2.0 at {_loc}
+			if {_tick} >= 5:
+				set {_phase} to 3
+				set {_tick} to 0
+				play sound "entity.firework_rocket.launch" with volume 0.8 with pitch 1.5 at {_loc}
+		else if {_phase} is 3:
+			set {_speed} to 1.5
+			set {_move} to vector(0, {_speed}, 0)
+			teleport {_missile} to {_loc} offset by {_move}
+			draw 2 of flame at {_loc} with delta vector(0,0,0) with extra 0 with force
+			draw 1 of cloud at {_loc} with delta vector(0,0,0) with extra 0 with force
+			draw 1 of smoke at {_loc} with delta vector(0,0,0) with extra 0 with force
+			if {_tick} >= 15:
+				set {_phase} to 4
+				set {_tick} to 0
+		else if {_phase} is 4:
+			set {_speed} to 2.0
+			if {_target} is set:
+				if {_target} is alive:
+					set {_target_loc} to location 1 meter above location of {_target}
+					set {_dir} to vector from {_loc} to {_target_loc}
+					set {_dir} to normalized {_dir}
+			else:
+				set {_dir} to vector(x of {_dir}, -0.5, z of {_dir})
+				set {_dir} to normalized {_dir}
+			set {_move} to {_dir} * {_speed}
+			teleport {_missile} to {_loc} offset by {_move}
+			draw 3 of flame at {_loc} with delta vector(0,0,0) with extra 0 with force
+			draw 2 of cloud at {_loc} with delta vector(0,0,0) with extra 0 with force
+			draw 1 of smoke at {_loc} with delta vector(0,0,0) with extra 0 with force
+			if missile_check_collision({_missile}, {_shooter}, {_loc}):
+				missile_explode({_missile}, {_shooter}, {_atk}, {_impact}, {_power})
+				stop
+		wait 1 tick
+	missile_cleanup({_uuid})
+	
+	# -------------------------------------------------------------------------
+	# Function: missile_check_collision
+	# -------------------------------------------------------------------------
+function missile_check_collision(missile: entity, shooter: player, loc: location) :: boolean:
+	if block at {_loc} is not air:
+		if block at {_loc} is solid:
+			return true
+	set {_victims::*} to entities in radius 1.5 of {_loc}
+	loop {_victims::*}:
+		set {_v} to loop-value
+		if uuid of {_v} is uuid of {_shooter}:
+			continue
+		if uuid of {_v} is uuid of {_missile}:
+			continue
+		if scoreboard tags of {_v} contains "krz_vfx":
+			continue
+		if scoreboard tags of {_v} contains "krz_missile":
+			continue
+		set {_type_str} to "%type of {_v}%"
+		if {_type_str} contains "display":
+			continue
+		if {_type_str} contains "interaction":
+			continue
+		if {_type_str} contains "marker":
+			continue
+		if {_type_str} contains "armor stand":
+			continue
+		if {_v} is not alive:
+			continue
+		if {_v} is a player:
+			if gamemode of {_v} is spectator:
+				continue
+		return true
+	return false
+	
+	# -------------------------------------------------------------------------
+	# Function: missile_explode
+	# -------------------------------------------------------------------------
+function missile_explode(missile: entity, shooter: player, atk: number, impact: number, power: number):
+	set {_loc} to location of {_missile}
+	set {_uuid} to uuid of {_missile}
+	kill {_missile}
+	weapon_explode({_shooter}, {_loc}, {_atk}, {_impact}, {_power})
+	missile_cleanup({_uuid})
+	
+	# -------------------------------------------------------------------------
+	# Function: missile_cleanup
+	# -------------------------------------------------------------------------
+function missile_cleanup(uuid: text):
+	delete {-missile::%{_uuid}%::shooter}
+	delete {-missile::%{_uuid}%::atk}
+	delete {-missile::%{_uuid}%::impact}
+	delete {-missile::%{_uuid}%::power}
+	delete {-missile::%{_uuid}%::dir}
+	delete {-missile::%{_uuid}%::target}

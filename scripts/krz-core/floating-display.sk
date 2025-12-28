@@ -27,6 +27,7 @@ function display_show_damage(loc: location, damage: number, is_crit: boolean):
 	
 	spawn text display at {_display_loc}
 	set {_display} to last spawned entity
+	add "krz_vfx" to scoreboard tags of {_display}
 	set display billboard of {_display} to center
 	set {_id} to random integer between 100000 and 999999
 	set {-display::pending::%{_id}%} to {_display}

@@ -1,0 +1,171 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Combat Equipment System
+# Author: Antigravity Agent
+# Since: 2025-12-26
+# Description: 仮想スロットベースの装備管理システム + Hotbar Sync
+# -------------------------------------------------------------------------
+
+options:
+	PREFIX: "&6[Equip] &f"
+	
+on load:
+	send "%{@PREFIX}%&a装備システム初期化完了" to console
+	
+	# -------------------------------------------------------------------------
+	# Suit Functions
+	# -------------------------------------------------------------------------
+	
+function equip_set_suit(p: player, item: item):
+	set {-kp::%{_p}'s uuid%::equip::suit} to {_item}
+	stat_sync({_p})
+	send "%{@PREFIX}%&aSuit を装備しました: &f%name of {_item}%" to {_p}
+	
+function equip_get_suit(p: player) :: item:
+	return {-kp::%{_p}'s uuid%::equip::suit}
+	
+function equip_clear_suit(p: player):
+	set {_old} to {-kp::%{_p}'s uuid%::equip::suit}
+	delete {-kp::%{_p}'s uuid%::equip::suit}
+	stat_sync({_p})
+	if {_old} is set:
+		give {_old} to {_p}
+		send "%{@PREFIX}%&cSuit を解除しました" to {_p}
+		
+function equip_has_suit(p: player) :: boolean:
+	if {-kp::%{_p}'s uuid%::equip::suit} is set:
+		return true
+	return false
+	
+	# -------------------------------------------------------------------------
+	# Weapon Functions (Hotbar Slot 1-2)
+	# -------------------------------------------------------------------------
+	
+function equip_set_weapon(p: player, slot: number, item: item):
+	if {_slot} < 1 or {_slot} > 2:
+		stop
+	set {-kp::%{_p}'s uuid%::equip::weapon::%{_slot}%} to {_item}
+	send "%{@PREFIX}%&aWeapon %{_slot}% を装備しました: &f%name of {_item}%" to {_p}
+	equip_sync_hotbar({_p}) # Update Hotbar
+	
+function equip_get_weapon(p: player, slot: number) :: item:
+	return {-kp::%{_p}'s uuid%::equip::weapon::%{_slot}%}
+	
+function equip_clear_weapon(p: player, slot: number):
+	set {_old} to {-kp::%{_p}'s uuid%::equip::weapon::%{_slot}%}
+	delete {-kp::%{_p}'s uuid%::equip::weapon::%{_slot}%}
+	# if {_old} is set:
+	# 	give {_old} to {_p} # Do not give back, just clear from variable. (It's in the hotbar?)
+	# Actually, since items are virtual, we should give them back if we are removing them from the SETUP.
+	# But in Hotbar Sync mode, the item exists in the hotbar.
+	# For safety, let's say "Equip" takes the item.
+	
+	if {_old} is set:
+		give {_old} to {_p}
+		send "%{@PREFIX}%&cWeapon %{_slot}% を解除しました" to {_p}
+		
+	equip_sync_hotbar({_p}) # Update Hotbar
+	
+	# -------------------------------------------------------------------------
+	# Accessory Functions
+	# -------------------------------------------------------------------------
+	
+function equip_get_accessory_slot_count(p: player) :: number:
+# アクセサリスロット数はSuitに依存 (デフォルト3)
+	set {_suit} to equip_get_suit({_p})
+	if {_suit} is not set:
+		return 3
+	set {_nbt} to nbt of {_suit}
+	set {_slots} to int tag "TechAccSlots" of {_nbt}
+	if {_slots} is set:
+		return {_slots}
+	return 3
+	
+function equip_set_accessory(p: player, slot: number, item: item):
+	set {_max} to equip_get_accessory_slot_count({_p})
+	if {_slot} < 1 or {_slot} > {_max}:
+		send "%{@PREFIX}%&cスロット範囲外です (1-%{_max}%)" to {_p}
+		stop
+	set {-kp::%{_p}'s uuid%::equip::acc::%{_slot}%} to {_item}
+	stat_sync({_p})
+	send "%{@PREFIX}%&aAccessory %{_slot}% を装備しました: &f%name of {_item}%" to {_p}
+	
+function equip_get_accessory(p: player, slot: number) :: item:
+	return {-kp::%{_p}'s uuid%::equip::acc::%{_slot}%}
+	
+function equip_clear_accessory(p: player, slot: number):
+	set {_old} to {-kp::%{_p}'s uuid%::equip::acc::%{_slot}%}
+	delete {-kp::%{_p}'s uuid%::equip::acc::%{_slot}%}
+	stat_sync({_p})
+	if {_old} is set:
+		give {_old} to {_p}
+		send "%{@PREFIX}%&cAccessory %{_slot}% を解除しました" to {_p}
+		
+		# -------------------------------------------------------------------------
+		# Hotbar Sync Function
+		# -------------------------------------------------------------------------
+function equip_sync_hotbar(p: player):
+# Slot 0 (Weapon 1)
+	set {_w1} to equip_get_weapon({_p}, 1)
+	if {_w1} is set:
+		set slot 0 of {_p} to {_w1}
+	else:
+		set slot 0 of {_p} to air
+		
+		# Slot 1 (Weapon 2)
+	set {_w2} to equip_get_weapon({_p}, 2)
+	if {_w2} is set:
+		set slot 1 of {_p} to {_w2}
+	else:
+		set slot 1 of {_p} to air
+		
+		# Slot 2 (Skill 1)
+	set {_skill1} to gray dye named "&7[Skill 1]"
+	set slot 2 of {_p} to {_skill1}
+	
+	# Slot 3 (Skill 2)
+	set {_skill2} to gray dye named "&7[Skill 2]"
+	set slot 3 of {_p} to {_skill2}
+	
+	# Slot 8 (Menu)
+	set {_menu} to nether star named "&b&lMAIN MENU" with lore "&7右クリックでメニューを開く"
+	set slot 8 of {_p} to {_menu}
+	
+	# -------------------------------------------------------------------------
+	# Debug Command
+	# -------------------------------------------------------------------------
+command /equip <text> [<text>]:
+	permission: op
+	trigger:
+		if arg-1 is "suit":
+			if arg-2 is "clear":
+				equip_clear_suit(player)
+			else:
+				set {_suit} to equip_get_suit(player)
+				if {_suit} is set:
+					send "%{@PREFIX}%&fSuit: %name of {_suit}%" to player
+				else:
+					send "%{@PREFIX}%&7Suit: (なし)" to player
+		else if arg-1 is "sync":
+			equip_sync_hotbar(player)
+			send "%{@PREFIX}%&aHotbar synced." to player
+		else if arg-1 is "status":
+			set {_suit} to equip_get_suit(player)
+			set {_w1} to equip_get_weapon(player, 1)
+			set {_w2} to equip_get_weapon(player, 2)
+			set {_acc_count} to equip_get_accessory_slot_count(player)
+			send "&6━━━━━ Equipment Status ━━━━━" to player
+			if {_suit} is set:
+				send "&7Suit: &f%name of {_suit}%" to player
+			else:
+				send "&7Suit: &8(Empty)" to player
+			if {_w1} is set:
+				send "&7Weapon 1: &f%name of {_w1}%" to player
+			else:
+				send "&7Weapon 1: &8(Empty)" to player
+			if {_w2} is set:
+				send "&7Weapon 2: &f%name of {_w2}%" to player
+			else:
+				send "&7Weapon 2: &8(Empty)" to player
+			send "&7Accessory Slots: &f%{_acc_count}%" to player
+		else:
+			send "%{@PREFIX}%&c使用法: /equip <suit|sync|status> [clear]" to player

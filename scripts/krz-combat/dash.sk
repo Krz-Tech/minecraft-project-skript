@@ -67,9 +67,9 @@ function dash_start(p: player):
 	
 	display_alert({_p}, "&b&l>> ASSAULT BOOST IGNITION <<", 40)
 	
-	# ループ処理開始
-	dash_particle_loop_rgb({_p})
-	dash_sound_loop({_p})
+	# ループ処理開始 (以前のブロッキング呼び出しを削除)
+	# dash_particle_loop_rgb({_p})
+	# dash_sound_loop({_p})
 	
 	# 0.5秒後に巡航速度へ移行
 	wait 10 ticks
@@ -77,89 +77,137 @@ function dash_start(p: player):
 		set {_p}'s walk speed to {@DASH_SPEED_BOOST}
 		set {_p}'s fly speed to {@DASH_FLY_SPEED}
 		
-function dash_sound_loop(p: player):
-	while {-kp::%{_p}'s uuid%::dash::active} is true:
-	# ジェット噴射音 (Jet thruster sound)
-		play sound "item.elytra.flying" with volume 0.2 with pitch 2 to {_p}
-		play sound "block.fire.ambient" with volume 0.5 with pitch 0.5 to {_p}
-		wait 10 ticks
+		# -------------------------------------------------------------------------
+		# Global Loop: Effects & Logic
+		# Description: Handles Particles and Sounds concurrently
+		# -------------------------------------------------------------------------
+every 1 tick:
+	loop all players:
+		if {-kp::%loop-player's uuid%::dash::active} is true:
+			dash_effect_tick(loop-player)
+			
+function dash_effect_tick(p: player):
+# Counter for Sound timing
+	add 1 to {-kp::%{_p}'s uuid%::dash::tick_count}
+	if {-kp::%{_p}'s uuid%::dash::tick_count} >= 10:
+		set {-kp::%{_p}'s uuid%::dash::tick_count} to 0
 		
+		# Sound Logic (毎tickで低音、間隔でアクセント)
+	set {_tc} to {-kp::%{_p}'s uuid%::dash::tick_count}
+	if {_tc} is 0 or 5:
+	# メインジェット音 (5tickごと)
+		play sound "entity.blaze.shoot" with volume 0.4 with pitch 0.5 to {_p}
+	if {_tc} is 0:
+		play sound "item.trident.riptide_1" with volume 0.3 with pitch 1.5 to {_p}
+	if {_tc} is 5:
+	# 補助音
+		play sound "entity.firework_rocket.launch" with volume 0.2 with pitch 2 to {_p}
+		# 常時うなり音
+	if {_tc} is 0 or 5:
+		play sound "block.fire.ambient" with volume 0.6 with pitch 0.3 to {_p}
 		
+		# Particle Logic
+	set {_color_mode} to dash_get_color({_p})
+	if {_color_mode} is "cyan":
+		set {_rgb} to rgb(0, 255, 255)
+	else if {_color_mode} is "orange":
+		set {_rgb} to rgb(255, 140, 0)
+	else if {_color_mode} is "red":
+		set {_rgb} to rgb(255, 50, 50)
+	else if {_color_mode} is "purple":
+		set {_rgb} to rgb(180, 0, 255)
+	else:
+		set {_rgb} to rgb(0, 255, 255)
+		
+		# プレイヤーの向きと位置（中心）
+	set {_loc} to location 0.5 meters behind {_p}
+	add 0.9 to y-coord of {_loc}
+	
+	# 後方ベクトル（噴射方向）
+	set {_back_vec} to vector of {_p}
+	set x of {_back_vec} to x of {_back_vec} * -1
+	set y of {_back_vec} to 0
+	set z of {_back_vec} to z of {_back_vec} * -1
+	set {_back_vec} to normalized {_back_vec}
+	
+	# 2連ノズル（左右にオフセット）
+	set {_right_vec} to vector from yaw (yaw of {_p} - 90) and pitch 0
+	set {_right_vec} to normalized {_right_vec}
+	
+	# 左ノズル位置
+	set {_left_loc} to {_loc}
+	set {_offset_left} to {_right_vec}
+	set x of {_offset_left} to x of {_offset_left} * 0.3
+	set z of {_offset_left} to z of {_offset_left} * 0.3
+	add x of {_offset_left} to x-coord of {_left_loc}
+	add z of {_offset_left} to z-coord of {_left_loc}
+	
+	# 右ノズル位置
+	set {_right_loc} to {_loc}
+	set {_offset_right} to {_right_vec}
+	set x of {_offset_right} to x of {_offset_right} * -0.3
+	set z of {_offset_right} to z of {_offset_right} * -0.3
+	add x of {_offset_right} to x-coord of {_right_loc}
+	add z of {_offset_right} to z-coord of {_right_loc}
+	
+	# =====================================
+	# メインパーティクル（左ノズル）
+	# =====================================
+	# コア炎（大きめ）
+	draw 5 of dust using dustOption({_rgb}, 2.5) at {_left_loc} with delta vector(0.1, 0.15, 0.1) with force
+	# 噴射プルーム（後方に伸びる）
+	set {_plume_left} to {_left_loc}
+	add x of {_back_vec} * 0.5 to x-coord of {_plume_left}
+	add z of {_back_vec} * 0.5 to z-coord of {_plume_left}
+	draw 4 of dust using dustOption({_rgb}, 2.0) at {_plume_left} with delta vector(0.15, 0.2, 0.15) with force
+	# 煙（収束）
+	draw 3 of cloud at {_left_loc} with delta vector(0.05, 0.08, 0.05) with extra 0.02 with force
+	
+	# =====================================
+	# メインパーティクル（右ノズル）
+	# =====================================
+	draw 5 of dust using dustOption({_rgb}, 2.5) at {_right_loc} with delta vector(0.1, 0.15, 0.1) with force
+	set {_plume_right} to {_right_loc}
+	add x of {_back_vec} * 0.5 to x-coord of {_plume_right}
+	add z of {_back_vec} * 0.5 to z-coord of {_plume_right}
+	draw 4 of dust using dustOption({_rgb}, 2.0) at {_plume_right} with delta vector(0.15, 0.2, 0.15) with force
+	draw 3 of cloud at {_right_loc} with delta vector(0.05, 0.08, 0.05) with extra 0.02 with force
+	
+	# =====================================
+	# Aux Particles (色別エフェクト - 大きめ)
+	# =====================================
+	if {_color_mode} is "cyan":
+		draw 4 of soul fire flame at {_left_loc} with delta vector(0.15, 0.25, 0.15) with extra 0.08 with force
+		draw 4 of soul fire flame at {_right_loc} with delta vector(0.15, 0.25, 0.15) with extra 0.08 with force
+	else if {_color_mode} is "orange":
+		draw 4 of flame at {_left_loc} with delta vector(0.15, 0.25, 0.15) with extra 0.08 with force
+		draw 4 of flame at {_right_loc} with delta vector(0.15, 0.25, 0.15) with extra 0.08 with force
+	else if {_color_mode} is "red":
+		draw 4 of flame at {_left_loc} with delta vector(0.15, 0.25, 0.15) with extra 0.08 with force
+		draw 4 of flame at {_right_loc} with delta vector(0.15, 0.25, 0.15) with extra 0.08 with force
+	else if {_color_mode} is "purple":
+		draw 4 of soul fire flame at {_left_loc} with delta vector(0.15, 0.25, 0.15) with extra 0.08 with force
+		draw 4 of soul fire flame at {_right_loc} with delta vector(0.15, 0.25, 0.15) with extra 0.08 with force
+		
+		# =====================================
+		# Trail (後方に残像 - より濃く)
+		# =====================================
+	set {_trail_loc} to location 1.2 meters behind {_p}
+	add 0.9 to y-coord of {_trail_loc}
+	add (random number between -0.15 and 0.15) to x-coord of {_trail_loc}
+	add (random number between -0.15 and 0.15) to y-coord of {_trail_loc}
+	add (random number between -0.15 and 0.15) to z-coord of {_trail_loc}
+	draw 3 of dust using dustOption({_rgb}, 1.8) at {_trail_loc} with delta vector(0.1, 0.15, 0.1) with force
+	# 煙トレイル
+	draw 2 of campfire cosy smoke at {_trail_loc} with delta vector(0.1, 0.1, 0.1) with extra 0.01 with force
+	
 function dash_get_color(p: player) :: text:
 	if {-kp::%{_p}'s uuid%::dash::color_mode} is set:
 		return {-kp::%{_p}'s uuid%::dash::color_mode}
-	return "cyan" # Default
+	return "cyan"
 	
-function dash_particle_loop_rgb(p: player):
-	while {-kp::%{_p}'s uuid%::dash::active} is true:
-	# 色の決定
-		set {_color_mode} to dash_get_color({_p})
-		if {_color_mode} is "cyan":
-			set {_rgb} to rgb(0, 255, 255)
-			set {_core_rgb} to rgb(200, 255, 255)
-		else if {_color_mode} is "orange":
-			set {_rgb} to rgb(255, 140, 0)
-			set {_core_rgb} to rgb(255, 200, 100)
-		else if {_color_mode} is "red":
-			set {_rgb} to rgb(255, 50, 50)
-			set {_core_rgb} to rgb(255, 150, 150)
-		else if {_color_mode} is "purple":
-			set {_rgb} to rgb(180, 0, 255)
-			set {_core_rgb} to rgb(230, 150, 255)
-		else: # Fallback
-			set {_rgb} to rgb(0, 255, 255)
-			set {_core_rgb} to rgb(200, 255, 255)
-			
-			# プレイヤーの向きと位置
-		set {_loc} to location 0.4 meters behind {_p}
-		add 0.8 to y-coord of {_loc}
-		
-		# コーン状に噴射 (Cone Spray) - 増量
-		loop 40 times:
-			set {_v} to vector of {_p}
-			# multiply {_v} by -1 (Component-wise)
-			set x of {_v} to x of {_v} * -1
-			set y of {_v} to y of {_v} * -1
-			set z of {_v} to z of {_v} * -1
-			# ランダムな拡散
-			add (random number between -0.5 and 0.5) to x of {_v}
-			add (random number between -0.5 and 0.5) to y of {_v}
-			add (random number between -0.5 and 0.5) to z of {_v}
-			set {_v} to normalized {_v}
-			set x of {_v} to x of {_v} * 0.8 # 速度アップ
-			set y of {_v} to y of {_v} * 0.8
-			set z of {_v} to z of {_v} * 0.8
-			# 描画
-			draw 1 of dust using dustOption({_rgb}, 1.5) at {_loc} with force
-			
-			# 色ごとの補助パーティクル (Aux)
-		if {_color_mode} is "cyan":
-			draw 5 of soul fire flame at {_loc} with delta vector(0.2, 0.4, 0.2) with extra 0.1
-			draw 5 of electric spark at {_loc} with delta vector(0.5, 0.5, 0.5) with extra 0.2
-		else if {_color_mode} is "orange":
-			draw 5 of flame at {_loc} with delta vector(0.2, 0.4, 0.2) with extra 0.1
-			draw 3 of lava at {_loc} with delta vector(0.2, 0.2, 0.2) with extra 0.1
-		else if {_color_mode} is "red":
-			draw 5 of flame at {_loc} with delta vector(0.2, 0.4, 0.2) with extra 0.1
-			draw 3 of lava at {_loc} with delta vector(0.2, 0.2, 0.2) with extra 0.1
-			draw 5 of landing lava at {_loc} with delta vector(0.3, 0.3, 0.3) with extra 0.2
-		else if {_color_mode} is "purple":
-			draw 5 of dragon breath at {_loc} with delta vector(0.2, 0.4, 0.2) with extra 0.05
-			draw 5 of witch at {_loc} with delta vector(0.5, 0.5, 0.5) with extra 0.2
-			
-			# 軌跡
-		loop 5 times:
-			set {_back_loc} to location 2.0 meters behind {_p}
-			add 0.8 to y-coord of {_back_loc}
-			add (random number between -0.5 and 0.5) to x-coord of {_back_loc}
-			add (random number between -0.5 and 0.5) to y-coord of {_back_loc}
-			add (random number between -0.5 and 0.5) to z-coord of {_back_loc}
-			draw 1 of dust using dustOption({_rgb}, 1) at {_back_loc} with force
-			
-		wait 1 tick
-		
-		
-		
+	
+	
 function dash_stop(p: player):
 	if {-kp::%{_p}'s uuid%::dash::active} is not true:
 		stop
@@ -296,6 +344,11 @@ function dash_quick_boost(p: player):
 	
 command /dash [<text>] [<text>]:
 	trigger:
+		if arg-1 is "reset":
+			set {-kp::%player's uuid%::dash::active} to false
+			set {-kp::%player's uuid%::dash::charge} to 0
+			send "&d[Dash] &cForced Reset." to player
+			stop
 		if arg-1 is "color":
 			if arg-2 is set:
 				set {-kp::%player's uuid%::dash::color_mode} to arg-2

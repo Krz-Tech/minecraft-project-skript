@@ -31,20 +31,40 @@ every 2 ticks:
 			if {_progress} > 1:
 				set {_progress} to 1
 				
+				# サブタイトル表示
+			set {_target_name} to "%type of {_target}%"
+			if {_target} is a player:
+				set {_target_name} to name of {_target}
+			set {_dist_int} to floor({_dist})
+			
+			if {_locked} is true:
+			# LOCKED状態
+				send title "" with subtitle "&c&lLOCKED: &f%{_target_name}% &7[%{_dist_int}%m]" to {_p} for 0.5 seconds with fadein 0 ticks and fadeout 5 ticks
+			else:
+			# LOCKING状態 - 進捗バー表示
+				set {_bars} to floor({_progress} * 5)
+				set {_bar_str} to ""
+				loop 5 times:
+					if loop-number <= {_bars}:
+						set {_bar_str} to "%{_bar_str}%&e■"
+					else:
+						set {_bar_str} to "%{_bar_str}%&8□"
+				send title "" with subtitle "&bLOCKING: &f%{_target_name}% &7[%{_dist_int}%m] %{_bar_str}%" to {_p} for 0.5 seconds with fadein 0 ticks and fadeout 5 ticks
+				
 				# Draw AC-style targeting brackets
 			if {_locked} is true:
 			# LOCKED - Tight red brackets + crosshair
-				fcs_draw_ac_locked({_p}, {_eye_loc})
+				fcs_draw_ac_locked({_p}, {_eye_loc}, {_target})
 			else:
 			# LOCKING - Closing brackets based on progress
-				fcs_draw_ac_locking({_p}, {_eye_loc}, {_progress})
+				fcs_draw_ac_locking({_p}, {_eye_loc}, {_progress}, {_target})
 				
 				# Lock complete notification
 			if {_locked} is true:
 				if {-fcs::display::%{_p}'s uuid%::was_locked} is not true:
 					set {-fcs::display::%{_p}'s uuid%::was_locked} to true
 					play sound "block.note_block.pling" with volume 0.5 with pitch 2 to {_p}
-					fcs_draw_lock_flash({_p}, {_eye_loc})
+					fcs_draw_lock_flash({_p}, {_eye_loc}, {_target})
 			else:
 				set {-fcs::display::%{_p}'s uuid%::was_locked} to false
 				
@@ -54,14 +74,59 @@ every 2 ticks:
 			delete {-fcs::display::%{_p}'s uuid%::prev_target}
 			
 			# -------------------------------------------------------------------------
-			# Function: fcs_draw_ac_locked
-			# AC-style LOCKED display: tight square brackets + center cross
+			# Function: fcs_get_view_offset
+			# プレイヤー視点からのオフセット位置を計算
+			# right_offset: 右方向オフセット (負で左)
+			# up_offset: 上方向オフセット (負で下)
 			# -------------------------------------------------------------------------
-function fcs_draw_ac_locked(viewer: player, loc: location):
-	set {_size} to 0.5
+function fcs_get_view_offset(viewer: player, base_loc: location, right_offset: number, up_offset: number) :: location:
+# プレイヤーの視線方向を取得
+	set {_yaw} to {_viewer}'s yaw
+	set {_pitch} to {_viewer}'s pitch
 	
-	# Four corner brackets (L-shaped)
-	# Top-Left corner
+	# 視線方向ベクトル (forward)
+	set {_cos_pitch} to cos({_pitch})
+	set {_forward_x} to sin({_yaw}) * {_cos_pitch} * -1
+	set {_forward_y} to sin({_pitch}) * -1
+	set {_forward_z} to cos({_yaw}) * {_cos_pitch}
+	
+	# 右方向ベクトル (forward × up) - Y軸(0,1,0)との外積
+	set {_right_x} to cos({_yaw})
+	set {_right_z} to sin({_yaw})
+	# right_y は常に0（水平面上）
+	
+	# 上方向ベクトル (right × forward)
+	set {_up_x} to {_right_z} * {_forward_y}
+	set {_up_y} to ({_right_x} * {_forward_z}) - ({_right_z} * {_forward_x})
+	set {_up_z} to {_right_x} * {_forward_y} * -1
+	
+	# オフセット適用
+	set {_result} to {_base_loc}
+	add ({_right_x} * {_right_offset}) to x-coord of {_result}
+	add ({_up_x} * {_up_offset}) to x-coord of {_result}
+	add ({_up_y} * {_up_offset}) to y-coord of {_result}
+	add ({_right_z} * {_right_offset}) to z-coord of {_result}
+	add ({_up_z} * {_up_offset}) to z-coord of {_result}
+	
+	return {_result}
+	
+	# -------------------------------------------------------------------------
+	# Function: fcs_draw_ac_locked
+	# AC-style LOCKED display: tight square brackets + center cross
+	# -------------------------------------------------------------------------
+function fcs_draw_ac_locked(viewer: player, loc: location, target: entity):
+# エンティティの高さに基づいてサイズを計算 (基本: 1.0, 最小: 0.7, 最大: 2.5)
+	set {_height} to 1.8
+	if {_target} is set:
+		set {_height} to bounding box height of bounding box of {_target}
+	set {_size} to 0.5 + ({_height} * 0.4)
+	if {_size} < 0.7:
+		set {_size} to 0.7
+	if {_size} > 2.5:
+		set {_size} to 2.5
+		
+		# Four corner brackets (L-shaped)
+		# Top-Left corner
 	fcs_draw_bracket({_viewer}, {_loc}, -1, 1, {_size}, 255, 30, 30)
 	# Top-Right corner
 	fcs_draw_bracket({_viewer}, {_loc}, 1, 1, {_size}, 255, 30, 30)
@@ -71,15 +136,25 @@ function fcs_draw_ac_locked(viewer: player, loc: location):
 	fcs_draw_bracket({_viewer}, {_loc}, 1, -1, {_size}, 255, 30, 30)
 	
 	# Center crosshair
-	fcs_draw_crosshair({_viewer}, {_loc}, 0.2, 255, 30, 30)
+	fcs_draw_crosshair({_viewer}, {_loc}, 0.3, 255, 30, 30)
 	
 	# -------------------------------------------------------------------------
 	# Function: fcs_draw_ac_locking
 	# AC-style LOCKING: brackets close in as lock progresses
 	# -------------------------------------------------------------------------
-function fcs_draw_ac_locking(viewer: player, loc: location, progress: number):
-# Bracket size decreases as lock progresses (1.2 -> 0.5)
-	set {_size} to 1.2 - ({_progress} * 0.7)
+function fcs_draw_ac_locking(viewer: player, loc: location, progress: number, target: entity):
+# エンティティの高さに基づいてベースサイズを計算
+	set {_height} to 1.8
+	if {_target} is set:
+		set {_height} to bounding box height of bounding box of {_target}
+	set {_base_size} to 0.5 + ({_height} * 0.5)
+	if {_base_size} < 0.8:
+		set {_base_size} to 0.8
+	if {_base_size} > 3.0:
+		set {_base_size} to 3.0
+		
+		# Bracket size decreases as lock progresses (ベース×1.5 -> ベース)
+	set {_size} to {_base_size} * (1.5 - ({_progress} * 0.5))
 	
 	# Color transition: Cyan (0%) -> Yellow (50%) -> Orange (100%)
 	if {_progress} < 0.5:
@@ -105,64 +180,64 @@ function fcs_draw_ac_locking(viewer: player, loc: location, progress: number):
 		
 		# -------------------------------------------------------------------------
 		# Function: fcs_draw_bracket
-		# Draws an L-shaped bracket at corner
+		# Draws an L-shaped bracket at corner (視点ベース)
 		# dir_x: -1 for left, 1 for right
 		# dir_y: -1 for bottom, 1 for top
 		# -------------------------------------------------------------------------
 function fcs_draw_bracket(viewer: player, loc: location, dir_x: number, dir_y: number, size: number, r: number, g: number, b: number):
 	set {_bracket_len} to 0.3
 	
-	# Corner point
-	set {_corner} to {_loc}
-	set {_offset_x} to {_dir_x} * {_size}
-	set {_offset_y} to {_dir_y} * {_size}
-	add {_offset_x} to x-coord of {_corner}
-	add {_offset_y} to y-coord of {_corner}
+	# Corner point (視点ベースオフセット)
+	set {_offset_right} to {_dir_x} * {_size}
+	set {_offset_up} to {_dir_y} * {_size}
+	set {_corner} to fcs_get_view_offset({_viewer}, {_loc}, {_offset_right}, {_offset_up})
 	
-	# Horizontal line (3 particles)
+	# Horizontal line (3 particles) - 右方向に描画
 	set {_neg_dir_x} to {_dir_x} * -1
 	set {_neg_dir_y} to {_dir_y} * -1
 	
 	loop 3 times:
 		set {_off} to (loop-number - 1) * ({_bracket_len} / 2)
-		set {_ploc} to {_corner}
-		set {_add_x} to {_neg_dir_x} * {_off}
-		add {_add_x} to x-coord of {_ploc}
+		set {_h_offset} to {_neg_dir_x} * {_off}
+		set {_ploc} to fcs_get_view_offset({_viewer}, {_corner}, {_h_offset}, 0)
 		draw 1 of dust using dustOption(rgb({_r}, {_g}, {_b}), 0.8) at {_ploc} for {_viewer}
 		
-		# Vertical line (3 particles)
+		# Vertical line (3 particles) - 上方向に描画
 	loop 3 times:
 		set {_off} to (loop-number - 1) * ({_bracket_len} / 2)
-		set {_ploc} to {_corner}
-		set {_add_y} to {_neg_dir_y} * {_off}
-		add {_add_y} to y-coord of {_ploc}
+		set {_v_offset} to {_neg_dir_y} * {_off}
+		set {_ploc} to fcs_get_view_offset({_viewer}, {_corner}, 0, {_v_offset})
 		draw 1 of dust using dustOption(rgb({_r}, {_g}, {_b}), 0.8) at {_ploc} for {_viewer}
 		
 		# -------------------------------------------------------------------------
 		# Function: fcs_draw_crosshair
-		# Center crosshair for locked state
+		# Center crosshair for locked state (視点ベース)
 		# -------------------------------------------------------------------------
 function fcs_draw_crosshair(viewer: player, loc: location, size: number, r: number, g: number, b: number):
-# Horizontal line
+# Horizontal line (右方向)
 	loop 3 times:
 		set {_offset} to (loop-number - 2) * {_size}
-		set {_ploc} to {_loc}
-		add {_offset} to x-coord of {_ploc}
+		set {_ploc} to fcs_get_view_offset({_viewer}, {_loc}, {_offset}, 0)
 		draw 1 of dust using dustOption(rgb({_r}, {_g}, {_b}), 0.6) at {_ploc} for {_viewer}
 		
-		# Vertical line
+		# Vertical line (上方向)
 	loop 3 times:
 		set {_offset} to (loop-number - 2) * {_size}
-		set {_ploc} to {_loc}
-		add {_offset} to y-coord of {_ploc}
+		set {_ploc} to fcs_get_view_offset({_viewer}, {_loc}, 0, {_offset})
 		draw 1 of dust using dustOption(rgb({_r}, {_g}, {_b}), 0.6) at {_ploc} for {_viewer}
 		
 		# -------------------------------------------------------------------------
 		# Function: fcs_draw_lock_flash
-		# Flash effect when lock completes
+		# Flash effect when lock completes (視点ベース)
 		# -------------------------------------------------------------------------
-function fcs_draw_lock_flash(viewer: player, loc: location):
-# Expanding square burst
+function fcs_draw_lock_flash(viewer: player, loc: location, target: entity):
+# エンティティの高さに基づいてフラッシュサイズを計算
+	set {_height} to 1.8
+	if {_target} is set:
+		set {_height} to bounding box height of bounding box of {_target}
+	set {_scale} to 0.4 + ({_height} * 0.3)
+	
+	# Expanding square burst
 	loop 4 times:
 		set {_corner_x} to 1
 		set {_corner_y} to 1
@@ -175,10 +250,8 @@ function fcs_draw_lock_flash(viewer: player, loc: location):
 			set {_corner_y} to -1
 			
 		loop 3 times:
-			set {_dist} to 0.6 + (loop-number-2 * 0.2)
-			set {_ploc} to {_loc}
-			add ({_corner_x} * {_dist}) to x-coord of {_ploc}
-			add ({_corner_y} * {_dist}) to y-coord of {_ploc}
+			set {_dist} to ({_scale} * 0.8) + (loop-number-2 * {_scale} * 0.3)
+			set {_ploc} to fcs_get_view_offset({_viewer}, {_loc}, {_corner_x} * {_dist}, {_corner_y} * {_dist})
 			draw 1 of end_rod at {_ploc} for {_viewer}
 			
 on quit:

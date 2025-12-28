@@ -1,0 +1,284 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Combat Test Weapons
+# Author: Antigravity Agent
+# Since: 2025-12-26
+# Description: AC-Style test weapons for all weapon types
+# -------------------------------------------------------------------------
+
+command /testweapon <text>:
+	aliases: /tw
+	trigger:
+		set {_type} to arg-1
+		
+		# =====================================================================
+		# PHYSICAL RIFLE - RF-024 FALCO (通常)
+		# =====================================================================
+		if {_type} is "falco":
+			set {_i} to iron horse armor named "&7&lRF-024 FALCO"
+			set lore of {_i} to "&8Standard Issue Rifle"
+			
+			set {_nbt} to nbt compound from "{}"
+			set int tag "TechItem" of {_nbt} to 1
+			set string tag "TechType" of {_nbt} to "WEAPON"
+			set string tag "TechWeaponClass" of {_nbt} to "RIFLE"
+			set string tag "TechAttribute" of {_nbt} to "PHYSICAL"
+			set int tag "TechPower" of {_nbt} to 1
+			set int tag "TechAtk" of {_nbt} to 6
+			set int tag "TechImpact" of {_nbt} to 12
+			set int tag "TechRange" of {_nbt} to 80
+			set int tag "TechCooldown" of {_nbt} to 6
+			set int tag "TechCost" of {_nbt} to 0
+			set int tag "TechMagSize" of {_nbt} to 30
+			set int tag "TechReload" of {_nbt} to 60
+			
+			add {_nbt} to custom nbt of {_i}
+			add "" to lore of {_i}
+			add "&8ATK:6 IMP:12 RNG:80" to lore of {_i}
+			add "&8MAG:30 RELOAD:60" to lore of {_i}
+			
+			give {_i} to player
+			send "&aGiven &7RF-024 FALCO" to player
+			
+			# =====================================================================
+			# PHYSICAL RIFLE - RF-051 PHOENIX (高威力)
+			# =====================================================================
+		else if {_type} is "phoenix":
+			set {_i} to iron horse armor named "&6&lRF-051 PHOENIX"
+			set lore of {_i} to "&8High-Power Assault Rifle"
+			
+			set {_nbt} to nbt compound from "{}"
+			set int tag "TechItem" of {_nbt} to 1
+			set string tag "TechType" of {_nbt} to "WEAPON"
+			set string tag "TechWeaponClass" of {_nbt} to "RIFLE"
+			set string tag "TechAttribute" of {_nbt} to "PHYSICAL"
+			set int tag "TechPower" of {_nbt} to 2
+			set int tag "TechAtk" of {_nbt} to 12
+			set int tag "TechImpact" of {_nbt} to 25
+			set int tag "TechRange" of {_nbt} to 100
+			set int tag "TechCooldown" of {_nbt} to 12
+			set int tag "TechCost" of {_nbt} to 0
+			set int tag "TechMagSize" of {_nbt} to 15
+			set int tag "TechReload" of {_nbt} to 80
+			
+			add {_nbt} to custom nbt of {_i}
+			add "" to lore of {_i}
+			add "&6ATK:12 IMP:25 RNG:100" to lore of {_i}
+			add "&6MAG:15 RELOAD:80" to lore of {_i}
+			
+			give {_i} to player
+			send "&aGiven &6RF-051 PHOENIX" to player
+			
+			# =====================================================================
+			# EN RIFLE - ER-028 NEBULA (通常)
+			# =====================================================================
+		else if {_type} is "nebula":
+			set {_i} to diamond horse armor named "&b&lER-028 NEBULA"
+			set lore of {_i} to "&8Laser Rifle"
+			
+			set {_nbt} to nbt compound from "{}"
+			set int tag "TechItem" of {_nbt} to 1
+			set string tag "TechType" of {_nbt} to "WEAPON"
+			set string tag "TechWeaponClass" of {_nbt} to "RIFLE"
+			set string tag "TechAttribute" of {_nbt} to "EN"
+			set int tag "TechPower" of {_nbt} to 1
+			set int tag "TechAtk" of {_nbt} to 8
+			set int tag "TechImpact" of {_nbt} to 10
+			set int tag "TechRange" of {_nbt} to 100
+			set int tag "TechCooldown" of {_nbt} to 8
+			set int tag "TechCost" of {_nbt} to 5
+			
+			add {_nbt} to custom nbt of {_i}
+			add "" to lore of {_i}
+			add "&bATK:8 IMP:10 RNG:100" to lore of {_i}
+			add "&bEN:5 RATE:8" to lore of {_i}
+			
+			give {_i} to player
+			send "&aGiven &bER-028 NEBULA" to player
+			
+			# =====================================================================
+			# EN RIFLE - ER-053 AURORA (高出力)
+			# =====================================================================
+		else if {_type} is "aurora":
+			set {_i} to diamond horse armor named "&d&lER-053 AURORA"
+			set lore of {_i} to "&8High-Output Laser Cannon"
+			
+			set {_nbt} to nbt compound from "{}"
+			set int tag "TechItem" of {_nbt} to 1
+			set string tag "TechType" of {_nbt} to "WEAPON"
+			set string tag "TechWeaponClass" of {_nbt} to "RIFLE"
+			set string tag "TechAttribute" of {_nbt} to "EN"
+			set int tag "TechPower" of {_nbt} to 2
+			set int tag "TechAtk" of {_nbt} to 15
+			set int tag "TechImpact" of {_nbt} to 20
+			set int tag "TechRange" of {_nbt} to 120
+			set int tag "TechCooldown" of {_nbt} to 20
+			set int tag "TechCost" of {_nbt} to 15
+			
+			add {_nbt} to custom nbt of {_i}
+			add "" to lore of {_i}
+			add "&dATK:15 IMP:20 RNG:120" to lore of {_i}
+			add "&dEN:15 RATE:20" to lore of {_i}
+			
+			give {_i} to player
+			send "&aGiven &dER-053 AURORA" to player
+			
+			# =====================================================================
+			# PHYSICAL SMG - MG-021 VIPER
+			# =====================================================================
+		else if {_type} is "viper":
+			set {_i} to iron horse armor named "&7&lMG-021 VIPER"
+			set lore of {_i} to "&8Rapid Fire SMG"
+			
+			set {_nbt} to nbt compound from "{}"
+			set int tag "TechItem" of {_nbt} to 1
+			set string tag "TechType" of {_nbt} to "WEAPON"
+			set string tag "TechWeaponClass" of {_nbt} to "SMG"
+			set string tag "TechAttribute" of {_nbt} to "PHYSICAL"
+			set int tag "TechPower" of {_nbt} to 1
+			set int tag "TechAtk" of {_nbt} to 3
+			set int tag "TechImpact" of {_nbt} to 4
+			set int tag "TechRange" of {_nbt} to 50
+			set int tag "TechCooldown" of {_nbt} to 2
+			set int tag "TechCost" of {_nbt} to 0
+			set int tag "TechMagSize" of {_nbt} to 60
+			set int tag "TechReload" of {_nbt} to 50
+			
+			add {_nbt} to custom nbt of {_i}
+			add "" to lore of {_i}
+			add "&7ATK:3 IMP:4 RNG:50" to lore of {_i}
+			add "&7MAG:60 RATE:2" to lore of {_i}
+			
+			give {_i} to player
+			send "&aGiven &7MG-021 VIPER" to player
+			
+			# =====================================================================
+			# EN SMG - EM-019 PULSE
+			# =====================================================================
+		else if {_type} is "pulse":
+			set {_i} to diamond horse armor named "&3&lEM-019 PULSE"
+			set lore of {_i} to "&8Energy Burst Cannon"
+			
+			set {_nbt} to nbt compound from "{}"
+			set int tag "TechItem" of {_nbt} to 1
+			set string tag "TechType" of {_nbt} to "WEAPON"
+			set string tag "TechWeaponClass" of {_nbt} to "SMG"
+			set string tag "TechAttribute" of {_nbt} to "EN"
+			set int tag "TechPower" of {_nbt} to 1
+			set int tag "TechAtk" of {_nbt} to 4
+			set int tag "TechImpact" of {_nbt} to 3
+			set int tag "TechRange" of {_nbt} to 60
+			set int tag "TechCooldown" of {_nbt} to 3
+			set int tag "TechCost" of {_nbt} to 2
+			
+			add {_nbt} to custom nbt of {_i}
+			add "" to lore of {_i}
+			add "&3ATK:4 IMP:3 RNG:60" to lore of {_i}
+			add "&3EN:2 RATE:3" to lore of {_i}
+			
+			give {_i} to player
+			send "&aGiven &3EM-019 PULSE" to player
+			
+			# =====================================================================
+			# EXPLOSION - BZ-045 MORTAR
+			# =====================================================================
+		else if {_type} is "mortar":
+			set {_i} to golden horse armor named "&c&lBZ-045 MORTAR"
+			set lore of {_i} to "&8Explosive Launcher"
+			
+			set {_nbt} to nbt compound from "{}"
+			set int tag "TechItem" of {_nbt} to 1
+			set string tag "TechType" of {_nbt} to "WEAPON"
+			set string tag "TechWeaponClass" of {_nbt} to "LAUNCHER"
+			set string tag "TechAttribute" of {_nbt} to "EXPLOSION"
+			set int tag "TechPower" of {_nbt} to 2
+			set int tag "TechAtk" of {_nbt} to 20
+			set int tag "TechImpact" of {_nbt} to 50
+			set int tag "TechRange" of {_nbt} to 60
+			set int tag "TechCooldown" of {_nbt} to 40
+			set int tag "TechCost" of {_nbt} to 0
+			set int tag "TechMagSize" of {_nbt} to 8
+			set int tag "TechReload" of {_nbt} to 100
+			
+			add {_nbt} to custom nbt of {_i}
+			add "" to lore of {_i}
+			add "&cATK:20 IMP:50 RNG:60" to lore of {_i}
+			add "&cMAG:8 RELOAD:100" to lore of {_i}
+			
+			give {_i} to player
+			send "&aGiven &cBZ-045 MORTAR" to player
+			
+			# =====================================================================
+			# BLADE - LS-012 MOONLIGHT
+			# =====================================================================
+		else if {_type} is "moonlight":
+			set {_i} to netherite sword named "&5&lLS-012 MOONLIGHT"
+			set lore of {_i} to "&8Laser Blade"
+			
+			set {_nbt} to nbt compound from "{}"
+			set int tag "TechItem" of {_nbt} to 1
+			set string tag "TechType" of {_nbt} to "WEAPON"
+			set string tag "TechWeaponClass" of {_nbt} to "BLADE"
+			set string tag "TechAttribute" of {_nbt} to "MELEE"
+			set int tag "TechPower" of {_nbt} to 2
+			set int tag "TechAtk" of {_nbt} to 25
+			set int tag "TechImpact" of {_nbt} to 60
+			set int tag "TechRange" of {_nbt} to 5
+			set int tag "TechCooldown" of {_nbt} to 15
+			set int tag "TechCost" of {_nbt} to 10
+			
+			add {_nbt} to custom nbt of {_i}
+			add "" to lore of {_i}
+			add "&5ATK:25 IMP:60" to lore of {_i}
+			add "&5EN:10 RATE:15" to lore of {_i}
+			
+			give {_i} to player
+			send "&aGiven &5LS-012 MOONLIGHT" to player
+			
+			# =====================================================================
+			# MISSILE - MS-027 STINGER (VLS型ミサイル)
+			# =====================================================================
+		else if {_type} is "stinger":
+			set {_i} to golden horse armor named "&4&lMS-027 STINGER"
+			set lore of {_i} to "&8VLS Missile Launcher"
+			
+			set {_nbt} to nbt compound from "{}"
+			set int tag "TechItem" of {_nbt} to 1
+			set string tag "TechType" of {_nbt} to "WEAPON"
+			set string tag "TechWeaponClass" of {_nbt} to "LAUNCHER"
+			set string tag "TechAttribute" of {_nbt} to "EXPLOSION"
+			set string tag "TechProjectile" of {_nbt} to "MISSILE"
+			set int tag "TechPower" of {_nbt} to 2
+			set int tag "TechAtk" of {_nbt} to 25
+			set int tag "TechImpact" of {_nbt} to 60
+			set int tag "TechRange" of {_nbt} to 150
+			set int tag "TechCooldown" of {_nbt} to 60
+			set int tag "TechCost" of {_nbt} to 0
+			set int tag "TechMagSize" of {_nbt} to 4
+			set int tag "TechReload" of {_nbt} to 120
+			
+			add {_nbt} to custom nbt of {_i}
+			add "" to lore of {_i}
+			add "&4ATK:25 IMP:60" to lore of {_i}
+			add "&4MISSILE | MAG:4" to lore of {_i}
+			
+			give {_i} to player
+			send "&aGiven &4MS-027 STINGER" to player
+			
+			# =====================================================================
+			# HELP
+			# =====================================================================
+		else:
+			send "&e=== Test Weapons ===" to player
+			send "&7/tw falco &8- RF-024 FALCO (実弾ライフル)" to player
+			send "&6/tw phoenix &8- RF-051 PHOENIX (高威力実弾ライフル)" to player
+			send "&b/tw nebula &8- ER-028 NEBULA (ENライフル)" to player
+			send "&d/tw aurora &8- ER-053 AURORA (高出力ENライフル)" to player
+			send "&7/tw viper &8- MG-021 VIPER (実弾SMG)" to player
+			send "&3/tw pulse &8- EM-019 PULSE (EN SMG)" to player
+			send "&c/tw mortar &8- BZ-045 MORTAR (爆発)" to player
+			send "&5/tw moonlight &8- LS-012 MOONLIGHT (ブレード)" to player
+			send "&4/tw stinger &8- MS-027 STINGER (VLSミサイル)" to player
+			
+on load:
+	send "&7[TestWeapons] &aAC-Style test weapons loaded." to console
+	

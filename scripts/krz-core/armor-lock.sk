@@ -1,0 +1,136 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Core Armor Slot Lock
+# Author: Antigravity Agent
+# Since: 2025-12-26
+# Description: 防具スロットのロックシステム (Assembly強制)
+# -------------------------------------------------------------------------
+
+options:
+	PREFIX: "&c[ArmorLock] &f"
+	
+on load:
+	send "%{@PREFIX}%&a防具スロットロック初期化完了" to console
+	
+	# -------------------------------------------------------------------------
+	# On Join: 防具スロットを封印
+	# -------------------------------------------------------------------------
+on join:
+	wait 5 ticks
+	armor_lock_apply(player)
+	
+	# -------------------------------------------------------------------------
+	# Function: armor_lock_apply
+	# Description: 全防具スロットにロックアイテムを設置
+	# -------------------------------------------------------------------------
+function armor_lock_apply(p: player):
+# ヘッドスロット: ボタン（3人称視点強制のため一時的に）
+	set {_head_lock} to oak button named "&8[VIEW LOCK]" with lore "&7視点制御用アイテム", "&8取り外し不可"
+	set int tag "ArmorLock" of custom nbt of {_head_lock} to 1
+	set helmet of {_p} to {_head_lock}
+	
+	# チェストスロット: バリアブロック
+	set {_chest_lock} to barrier named "&c[LOCKED]" with lore "&7このスロットは使用できません", "&8Assemblyで装備を管理してください"
+	set int tag "ArmorLock" of custom nbt of {_chest_lock} to 1
+	set chestplate of {_p} to {_chest_lock}
+	
+	# レッグスロット: バリアブロック
+	set {_legs_lock} to barrier named "&c[LOCKED]" with lore "&7このスロットは使用できません", "&8Assemblyで装備を管理してください"
+	set int tag "ArmorLock" of custom nbt of {_legs_lock} to 1
+	set leggings of {_p} to {_legs_lock}
+	
+	# ブーツスロット: バリアブロック
+	set {_boots_lock} to barrier named "&c[LOCKED]" with lore "&7このスロットは使用できません", "&8Assemblyで装備を管理してください"
+	set int tag "ArmorLock" of custom nbt of {_boots_lock} to 1
+	set boots of {_p} to {_boots_lock}
+	
+	# -------------------------------------------------------------------------
+	# Function: armor_lock_check
+	# Description: アイテムがロックアイテムかチェック
+	# -------------------------------------------------------------------------
+function armor_lock_check(item: item) :: boolean:
+	if {_item} is not set:
+		return false
+	set {_nbt} to custom nbt of {_item}
+	set {_flag} to int tag "ArmorLock" of {_nbt}
+	if {_flag} is 1:
+		return true
+	return false
+	
+	# -------------------------------------------------------------------------
+	# Event: 防具スロットの変更を防止
+	# -------------------------------------------------------------------------
+on armor change:
+	wait 1 tick
+	# ロックアイテムが外れていたら再適用
+	if armor_lock_check(helmet of player) is false:
+		set {_head_lock} to oak button named "&8[VIEW LOCK]" with lore "&7視点制御用アイテム", "&8取り外し不可"
+		set int tag "ArmorLock" of custom nbt of {_head_lock} to 1
+		set helmet of player to {_head_lock}
+		
+	if armor_lock_check(chestplate of player) is false:
+		set {_chest_lock} to barrier named "&c[LOCKED]" with lore "&7このスロットは使用できません"
+		set int tag "ArmorLock" of custom nbt of {_chest_lock} to 1
+		set chestplate of player to {_chest_lock}
+		
+	if armor_lock_check(leggings of player) is false:
+		set {_legs_lock} to barrier named "&c[LOCKED]" with lore "&7このスロットは使用できません"
+		set int tag "ArmorLock" of custom nbt of {_legs_lock} to 1
+		set leggings of player to {_legs_lock}
+		
+	if armor_lock_check(boots of player) is false:
+		set {_boots_lock} to barrier named "&c[LOCKED]" with lore "&7このスロットは使用できません"
+		set int tag "ArmorLock" of custom nbt of {_boots_lock} to 1
+		set boots of player to {_boots_lock}
+		
+		# -------------------------------------------------------------------------
+		# Event: 防具スロットへのクリックを防止
+		# -------------------------------------------------------------------------
+on inventory click:
+# GUIが開いている場合は無視 (Assemblyなどでの誤爆防止)
+	if name of player's current inventory is set:
+		if name of player's current inventory is not "Crafting":
+			stop
+			
+	if event-inventory is player's inventory:
+		set {_slot} to index of event-slot
+		
+		# 防具スロット (36-39)
+		if {_slot} >= 36 and {_slot} <= 39:
+			cancel event
+			send "&c防具スロットはロックされています" to player
+			
+			# Hotbar Fixed Slots (0, 1, 2, 3, 8)
+			# Weapon 1, Weapon 2, Skill 1, Skill 2, Main Menu
+		if {_slot} is 0 or 1 or 2 or 3 or 8:
+		# Assembly Menu etc. might interact with these? 
+		# But we're inside 'if name of player's current inventory is not set' (or filtered by gui-lock in future)
+		# Wait, armor-lock.sk checks 'if name of player's current inventory is set' -> stop.
+		# So this logic ONLY runs when NOT in a GUI.
+		# Perfect.
+			cancel event
+			send "&cこのスロットは固定されています" to player
+			
+			# -------------------------------------------------------------------------
+			# Event: ドロップ防止
+			# -------------------------------------------------------------------------
+on drop:
+	if armor_lock_check(event-item) is true:
+		cancel event
+		
+		# -------------------------------------------------------------------------
+		# Command: /armorlock - 管理者用
+		# -------------------------------------------------------------------------
+command /armorlock <text>:
+	permission: op
+	trigger:
+		if arg-1 is "apply":
+			armor_lock_apply(player)
+			send "%{@PREFIX}%&a防具ロックを適用しました" to player
+		else if arg-1 is "clear":
+			set helmet of player to air
+			set chestplate of player to air
+			set leggings of player to air
+			set boots of player to air
+			send "%{@PREFIX}%&c防具ロックを解除しました (管理者)" to player
+		else:
+			send "%{@PREFIX}%&c使用法: /armorlock <apply|clear>" to player

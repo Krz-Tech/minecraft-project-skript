@@ -18,53 +18,89 @@ on load:
 	# Event: on damage - カスタムダメージ計算
 	# -------------------------------------------------------------------------
 on damage:
-# 基礎ダメージを取得
-	set {_base_damage} to final damage
-	if {_base_damage} <= 0:
+# Check for bypass flag (RayCast / Custom Damage)
+	if metadata "krz_dmg_bypass" of victim is set:
 		stop
 		
-		# 被害者の位置を取得
-	set {_loc} to location of victim
+		# 基礎ダメージを取得
+	set {_base_damage} to final damage
 	
-	# 攻撃者がプレイヤーの場合のみカスタム計算
+	# ... (Existing Logic shortened/refactored? No, just keep it but check inputs)
+	# For simplicity, if it IS a projectile, we assume it's the old system or an explosion.
+	# The RayCast system will call a function.
+	
+	set {_attacker_player} to executor
 	if attacker is a player:
-		set {_attacker} to attacker
+		set {_attacker_player} to attacker
 		
-		# クリティカル判定（ジャンプ攻撃）
-		set {_is_crit} to false
-		if {_attacker} is not on ground:
-			if {_attacker} is not sprinting:
-				set {_is_crit} to true
+	if damage was caused by projectile:
+		if metadata "shooter" of projectile is set:
+			set {_attacker_player} to metadata "shooter" of projectile
+			set {_custom_dmg} to metadata "damage" of projectile
+			set {_custom_impact} to metadata "impact" of projectile
+			
+			if {_custom_dmg} is set:
+			# Custom Calculation
+				set {_final} to damage_calculate({_attacker_player}, victim, {_custom_dmg})
+				display_effect_process({_attacker_player}, victim, {_final}, {_custom_impact})
+				set damage to {_final}
 				
-				# ダイレクトヒット判定（被害者がプレイヤーでスタッガー中）
-		set {_is_direct_hit} to false
-		if victim is a player:
-			if stagger_is_active(victim) is true:
-				set {_is_direct_hit} to true
-				
-				# ダメージ計算
-		set {_final_damage} to {_base_damage}
-		
-		# 会心補正
-		if {_is_crit} is true:
-			set {_final_damage} to {_final_damage} * {@CRIT_MULTIPLIER}
+				# -------------------------------------------------------------------------
+				# Function: damage_execute (For RayCast)
+				# -------------------------------------------------------------------------
+function damage_execute(p: player, victim: entity, dmg: number, impact: number, attr: text):
+# Calculate
+	set {_final} to damage_calculate({_p}, {_victim}, {_dmg})
+	
+	# Effects (Visuals + Stagger)
+	display_effect_process({_p}, {_victim}, {_final}, {_impact})
+	
+	# Apply Damage safely
+	set metadata "krz_dmg_bypass" of {_victim} to true
+	damage {_victim} by {_final}
+	delete metadata "krz_dmg_bypass" of {_victim}
+	
+	# -------------------------------------------------------------------------
+	# Helper: Calculation
+	# -------------------------------------------------------------------------
+function damage_calculate(attacker: player, victim: entity, base: number) :: number:
+	set {_final} to {_base}
+	
+	# Crit (Jump)
+	if {_attacker} is not on ground:
+		if {_attacker} is not sprinting:
+			set {_final} to {_final} * {@CRIT_MULTIPLIER}
 			
-			# ダイレクトヒット補正
-		if {_is_direct_hit} is true:
-			set {_final_damage} to {_final_damage} * {@DIRECT_HIT_MULTIPLIER}
-			display_show_direct_hit({_loc}, {_final_damage})
-		else:
-			display_show_damage({_loc}, {_final_damage}, {_is_crit})
+			# Direct Hit (Stagger)
+	if {_victim} is a player:
+		if stagger_is_active({_victim}) is true:
+			set {_final} to {_final} * {@DIRECT_HIT_MULTIPLIER}
 			
-			# スタッガー蓄積（被害者がプレイヤーの場合）
-		if victim is a player:
-			set {_impact} to {_final_damage} * {@IMPACT_MULTIPLIER}
-			stagger_add_impact(victim, {_impact})
-			# Visual Effect
-			display_effect_damage_glitch(victim)
+	return {_final}
+	
+	# -------------------------------------------------------------------------
+	# Helper: Effects & Stagger
+	# -------------------------------------------------------------------------
+function display_effect_process(attacker: player, victim: entity, dmg: number, impact: number):
+	set {_loc} to location of {_victim}
+	set {_is_crit} to false
+	set {_is_dh} to false
+	
+	# Re-check states for visuals (redundant but safe)
+	if {_attacker} is not on ground:
+		if {_attacker} is not sprinting:
+			set {_is_crit} to true
+	if {_victim} is a player:
+		if stagger_is_active({_victim}) is true:
+			set {_is_dh} to true
 			
-			# ダメージをオーバーライド
-		set damage to {_final_damage}
+	if {_is_dh} is true:
+		display_show_direct_hit({_loc}, {_dmg})
 	else:
-	# 攻撃者がプレイヤーでない場合は表示のみ
-		display_show_damage({_loc}, {_base_damage}, false)
+		display_show_damage({_loc}, {_dmg}, {_is_crit})
+		
+	if {_victim} is a player:
+		if {_impact} is not set:
+			set {_impact} to {_dmg} * {@IMPACT_MULTIPLIER}
+		stagger_add_impact({_victim}, {_impact})
+		display_effect_damage_glitch({_victim})

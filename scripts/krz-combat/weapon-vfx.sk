@@ -1,0 +1,177 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Combat Weapon VFX/SFX
+# Author: Antigravity Agent
+# Since: 2025-12-26
+# Description: 武器タイプ別のVFX・効果音を関数化
+# -------------------------------------------------------------------------
+
+options:
+	PREFIX: "&3[VFX] &r"
+	
+on load:
+	send "%{@PREFIX}%&aWeapon VFX Module Initialized" to console
+	
+	# -------------------------------------------------------------------------
+	# Function: vfx_fire
+	# Description: 射撃時マズルフラッシュ + SFX
+	# Args: p=player, attr=TechAttribute, class=WeaponClass, power=1-3 (性能)
+	# -------------------------------------------------------------------------
+function vfx_fire(p: player, attr: text, class: text, power: number):
+	set {_loc} to eye location of {_p}
+	set {_yaw} to yaw of {_p}
+	set {_pitch} to pitch of {_p}
+	set {_dir} to vector from yaw {_yaw} and pitch {_pitch}
+	set {_muzzle} to {_loc} offset by ({_dir} * 0.5)
+	
+	# PHYSICAL (実弾系)
+	if {_attr} is "PHYSICAL":
+		if {_class} is "RIFLE":
+			if {_power} >= 2:
+			# 高威力ライフル
+				draw 3 of flash at {_muzzle} with force
+				play sound "entity.generic.explode" with volume 0.3 with pitch 2.0 to {_p}
+				play sound "item.shield.block" with volume 0.6 with pitch 0.8 to {_p}
+			else:
+			# 通常ライフル
+				draw 1 of flash at {_muzzle} with force
+				play sound "item.shield.block" with volume 0.5 with pitch 1.0 to {_p}
+				play sound "entity.iron_golem.attack" with volume 0.2 with pitch 2.0 to {_p}
+		else if {_class} is "SMG":
+		# SMG (軽い射撃音)
+			draw 1 of flash at {_muzzle} with force
+			play sound "item.shield.block" with volume 0.3 with pitch 1.5 to {_p}
+			
+			# EN (エネルギー系)
+	else if {_attr} is "EN":
+		if {_class} is "RIFLE":
+			if {_power} >= 2:
+			# 高出力ENライフル
+				draw 5 of soul fire flame at {_muzzle} with delta vector(0.1, 0.1, 0.1) with force
+				draw 3 of electric spark at {_muzzle} with force
+				play sound "block.beacon.activate" with volume 0.5 with pitch 1.5 to {_p}
+				play sound "entity.wither.shoot" with volume 0.3 with pitch 2.0 to {_p}
+			else:
+			# 通常ENライフル
+				draw 2 of soul fire flame at {_muzzle} with force
+				play sound "entity.arrow.shoot" with volume 0.5 with pitch 1.5 to {_p}
+				play sound "block.beacon.activate" with volume 0.2 with pitch 2.0 to {_p}
+		else if {_class} is "SMG":
+		# EN SMG
+			draw 1 of soul fire flame at {_muzzle} with force
+			play sound "block.beacon.activate" with volume 0.2 with pitch 2.0 to {_p}
+			
+			# EXPLOSION (爆発系)
+	else if {_attr} is "EXPLOSION":
+		draw 3 of smoke at {_muzzle} with delta vector(0.1, 0.1, 0.1) with force
+		draw 1 of flame at {_muzzle} with force
+		play sound "entity.firework_rocket.launch" with volume 0.5 with pitch 0.8 to {_p}
+		
+		# MELEE (近接 - ブレード)
+	else if {_attr} is "MELEE":
+		draw 1 of sweep attack at {_muzzle} with force
+		play sound "entity.player.attack.sweep" with volume 0.6 with pitch 1.2 to {_p}
+		
+		# -------------------------------------------------------------------------
+		# Function: vfx_tracer
+		# Description: 弾道パーティクル (1ステップ分)
+		# Args: loc=位置, attr=TechAttribute, class=WeaponClass, power=1-3
+		# -------------------------------------------------------------------------
+function vfx_tracer(loc: location, attr: text, class: text, power: number):
+# PHYSICAL
+	if {_attr} is "PHYSICAL":
+		if {_power} >= 2:
+		# 高威力 - より目立つトレーサー
+			draw 1 of crit at {_loc} with delta vector(0,0,0) with extra 0 with force
+			draw 1 of smoke at {_loc} with delta vector(0,0,0) with extra 0 with force
+		else:
+			draw 1 of crit at {_loc} with delta vector(0,0,0) with extra 0 with force
+			
+			# EN
+	else if {_attr} is "EN":
+		if {_power} >= 2:
+		# 高出力 - より派手なビーム
+			draw 1 of soul fire flame at {_loc} with delta vector(0,0,0) with extra 0 with force
+			draw 1 of dust using dustOption(rgb(100, 255, 255), 1.2) at {_loc} with force
+			draw 1 of electric spark at {_loc} with delta vector(0,0,0) with extra 0 with force
+		else:
+			draw 1 of soul fire flame at {_loc} with delta vector(0,0,0) with extra 0 with force
+			draw 1 of dust using dustOption(rgb(100, 255, 255), 0.8) at {_loc} with force
+			
+			# EXPLOSION
+	else if {_attr} is "EXPLOSION":
+		draw 1 of smoke at {_loc} with delta vector(0,0,0) with extra 0 with force
+		draw 1 of flame at {_loc} with delta vector(0,0,0) with extra 0 with force
+		
+		# MELEE (ブレード - 通常は弾道なし)
+		
+		# -------------------------------------------------------------------------
+		# Function: vfx_impact
+		# Description: 着弾VFX + SFX (壁やブロックへのヒット)
+		# Args: loc=位置, attr=TechAttribute, class=WeaponClass, power=1-3
+		# -------------------------------------------------------------------------
+function vfx_impact(loc: location, attr: text, class: text, power: number):
+# PHYSICAL
+	if {_attr} is "PHYSICAL":
+		if {_power} >= 2:
+			draw 8 of dust using dustOption(rgb(150, 150, 150), 0.8) at {_loc} with delta vector(0.2, 0.2, 0.2) with force
+			play sound "block.stone.hit" with volume 0.6 with pitch 0.8 at {_loc}
+		else:
+			draw 5 of dust using dustOption(rgb(200, 200, 200), 0.5) at {_loc} with force
+			play sound "block.stone.hit" with volume 0.4 with pitch 1.0 at {_loc}
+			
+			# EN
+	else if {_attr} is "EN":
+		if {_power} >= 2:
+			draw 5 of electric spark at {_loc} with delta vector(0.2, 0.2, 0.2) with force
+			draw 3 of soul fire flame at {_loc} with delta vector(0.1, 0.1, 0.1) with force
+			play sound "block.respawn_anchor.deplete" with volume 0.5 with pitch 1.5 at {_loc}
+		else:
+			draw 3 of electric spark at {_loc} with force
+			play sound "block.respawn_anchor.deplete" with volume 0.3 with pitch 2.0 at {_loc}
+			
+			# EXPLOSION
+	else if {_attr} is "EXPLOSION":
+		draw 10 of flame at {_loc} with delta vector(0.5, 0.5, 0.5) with force
+		draw 15 of smoke at {_loc} with delta vector(0.3, 0.3, 0.3) with force
+		draw 10 of lava at {_loc} with delta vector(0.2, 0.2, 0.2) with force
+		play sound "entity.generic.explode" with volume 0.8 with pitch 1.0 at {_loc}
+		
+		# -------------------------------------------------------------------------
+		# Function: vfx_hit
+		# Description: 被弾VFX + SFX (エンティティへのヒット)
+		# Args: victim=被弾者, attr=TechAttribute, class=WeaponClass, power=1-3
+		# -------------------------------------------------------------------------
+function vfx_hit(victim: entity, attr: text, class: text, power: number):
+	set {_loc} to location of {_victim}
+	
+	# PHYSICAL
+	if {_attr} is "PHYSICAL":
+		if {_power} >= 2:
+			draw 5 of crit at {_loc} with delta vector(0.2, 0.3, 0.2) with force
+			draw 3 of damage indicator at {_loc} with force
+			play sound "entity.player.hurt" with volume 0.5 with pitch 0.8 at {_loc}
+		else:
+			draw 3 of crit at {_loc} with force
+			play sound "entity.player.hurt" with volume 0.4 with pitch 1.0 at {_loc}
+			
+			# EN
+	else if {_attr} is "EN":
+		if {_power} >= 2:
+			draw 5 of electric spark at {_loc} with delta vector(0.2, 0.3, 0.2) with force
+			draw 3 of soul fire flame at {_loc} with force
+			play sound "entity.lightning_bolt.impact" with volume 0.4 with pitch 2.0 at {_loc}
+		else:
+			draw 3 of electric spark at {_loc} with force
+			play sound "entity.lightning_bolt.impact" with volume 0.3 with pitch 2.0 at {_loc}
+			
+			# EXPLOSION
+	else if {_attr} is "EXPLOSION":
+		draw 5 of flame at {_loc} with delta vector(0.3, 0.3, 0.3) with force
+		draw 5 of smoke at {_loc} with delta vector(0.2, 0.2, 0.2) with force
+		play sound "entity.generic.explode" with volume 0.5 with pitch 1.5 at {_loc}
+		
+		# MELEE (ブレード)
+	else if {_attr} is "MELEE":
+		draw 1 of sweep attack at {_loc} with force
+		draw 3 of crit at {_loc} with force
+		play sound "entity.player.attack.strong" with volume 0.6 with pitch 1.0 at {_loc}

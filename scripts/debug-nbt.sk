@@ -1,0 +1,14 @@
+command /checknbt:
+	trigger:
+		set {_i} to player's tool
+		send "&b[NBT Check]" to player
+		send "&7Item: %{_i}%" to player
+		
+		set {_nbt} to nbt of {_i}
+		send "&7Full NBT: %{_nbt}%" to player
+		
+		set {_custom} to custom nbt of {_i}
+		send "&7Custom NBT: %{_custom}%" to player
+		
+		set {_tech} to int tag "TechItem" of {_custom}
+		send "&eTechItem Tag: %{_tech}%" to player

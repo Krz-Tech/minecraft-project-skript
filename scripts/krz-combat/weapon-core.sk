@@ -1,0 +1,399 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Combat Weapon Core
+# Author: Antigravity Agent
+# Since: 2025-12-26
+# Description: 汎用武器制御システム (NBTベース, RayCast射撃, Auto-fire)
+# -------------------------------------------------------------------------
+
+options:
+	PREFIX: "&7[Weapon] &r"
+	
+on load:
+	send "%{@PREFIX}%&aWeapon Core Initialized" to console
+	
+	# -------------------------------------------------------------------------
+	# Event: Weapon Trigger (Right Click) - Auto-fire開始
+	# -------------------------------------------------------------------------
+on right click:
+	if player is holding air:
+		stop
+	set {_tool} to player's tool
+	set {_nbt} to custom nbt of {_tool}
+	if int tag "TechItem" of {_nbt} is 1:
+		if string tag "TechType" of {_nbt} is "WEAPON":
+			cancel event
+			# Start auto-fire loop if not already firing
+			if {-kp::%player's uuid%::weapon::firing} is not set:
+				weapon_start_autofire(player)
+				
+				# -------------------------------------------------------------------------
+				# Event: Stop firing on various conditions
+				# -------------------------------------------------------------------------
+on left click:
+# Stop firing when switching to melee
+	if {-kp::%player's uuid%::weapon::firing} is set:
+		delete {-kp::%player's uuid%::weapon::firing}
+		
+on swap hand items:
+	if {-kp::%player's uuid%::weapon::firing} is set:
+		delete {-kp::%player's uuid%::weapon::firing}
+		
+on drop:
+	if {-kp::%player's uuid%::weapon::firing} is set:
+		delete {-kp::%player's uuid%::weapon::firing}
+		
+		# Tech武器ならドロップをキャンセルしてリロード開始
+	set {_dropped} to event-item
+	set {_nbt} to custom nbt of {_dropped}
+	if int tag "TechItem" of {_nbt} is 1:
+		if string tag "TechType" of {_nbt} is "WEAPON":
+			cancel event
+			# リロード中はスキップ
+			if {-kp::%player's uuid%::weapon::reloading} is set:
+				stop
+				# 弾薬系武器のみリロード
+			set {_attr} to string tag "TechAttribute" of {_nbt}
+			if {_attr} is "PHYSICAL" or "EXPLOSION":
+				set {_mag_size} to int tag "TechMagSize" of {_nbt}
+				set {_reload_time} to int tag "TechReload" of {_nbt}
+				if {_mag_size} is not set:
+					set {_mag_size} to 30
+				if {_reload_time} is not set:
+					set {_reload_time} to 60
+				set {_current_mag} to int tag "TechCurrentMag" of {_nbt}
+				if {_current_mag} is not set:
+					set {_current_mag} to {_mag_size}
+					# 満タンならリロード不要
+				if {_current_mag} >= {_mag_size}:
+					play sound "block.note_block.hat" with volume 0.5 with pitch 1.5 to player
+					stop
+					# リロード開始（現在手持ちのアイテムを使用）
+				set {_tool} to player's tool
+				weapon_reload(player, {_tool}, {_nbt}, {_mag_size}, {_reload_time})
+				
+				# -------------------------------------------------------------------------
+				# Function: weapon_start_autofire
+				# Description: Auto-fire ループを開始
+				# -------------------------------------------------------------------------
+function weapon_start_autofire(p: player):
+	set {-kp::%{_p}'s uuid%::weapon::firing} to true
+	set {-kp::%{_p}'s uuid%::weapon::last_trigger} to now
+	
+	while {-kp::%{_p}'s uuid%::weapon::firing} is set:
+	# Check if player still exists and is online
+		if {_p} is not online:
+			delete {-kp::%{_p}'s uuid%::weapon::firing}
+			stop
+			
+			# Check if still holding a weapon
+		set {_tool} to tool of {_p}
+		if {_tool} is air:
+			delete {-kp::%{_p}'s uuid%::weapon::firing}
+			stop
+		set {_nbt} to custom nbt of {_tool}
+		if int tag "TechItem" of {_nbt} is not 1:
+			delete {-kp::%{_p}'s uuid%::weapon::firing}
+			stop
+		if string tag "TechType" of {_nbt} is not "WEAPON":
+			delete {-kp::%{_p}'s uuid%::weapon::firing}
+			stop
+			
+			# Auto-stop after 0.5 seconds without re-trigger (released right click)
+		set {_last} to {-kp::%{_p}'s uuid%::weapon::last_trigger}
+		set {_diff} to difference between now and {_last}
+		if {_diff} > 10 ticks:
+			delete {-kp::%{_p}'s uuid%::weapon::firing}
+			stop
+			
+			# Try to fire
+		weapon_try_fire({_p}, {_tool}, {_nbt})
+		
+		# Wait for cooldown before next shot
+		set {_cd} to int tag "TechCooldown" of {_nbt}
+		if {_cd} is not set:
+			set {_cd} to 10
+		wait "%{_cd}% ticks" parsed as timespan
+		
+		# -------------------------------------------------------------------------
+		# Event: Keep firing flag alive while right clicking
+		# -------------------------------------------------------------------------
+		# Right click event refreshes trigger time (this is the main detection method)
+		# Auto-fire will stop after 10 ticks without right click event
+		
+on right click:
+	if {-kp::%player's uuid%::weapon::firing} is set:
+		set {-kp::%player's uuid%::weapon::last_trigger} to now
+		
+		# -------------------------------------------------------------------------
+		# Function: weapon_try_fire
+		# Description: 発射判定 (Cooldown, EN, Ammo check)
+		# -------------------------------------------------------------------------
+function weapon_try_fire(p: player, item: item, nbt: nbt compound):
+# Cooldown Check
+	if {-kp::%{_p}'s uuid%::weapon::cooldown} is set:
+		stop
+		
+		# Reloading Check
+	if {-kp::%{_p}'s uuid%::weapon::reloading} is set:
+		stop
+		
+		# Ammo & Reload Logic (Physical/Explosion)
+	set {_attr} to string tag "TechAttribute" of {_nbt}
+	if {_attr} is "PHYSICAL" or "EXPLOSION":
+		set {_mag_size} to int tag "TechMagSize" of {_nbt}
+		set {_reload_time} to int tag "TechReload" of {_nbt}
+		if {_mag_size} is not set:
+			set {_mag_size} to 30
+		if {_reload_time} is not set:
+			set {_reload_time} to 60
+		set {_current_mag} to int tag "TechCurrentMag" of {_nbt}
+		if {_current_mag} is not set:
+			set {_current_mag} to {_mag_size}
+			set int tag "TechCurrentMag" of {_nbt} to {_mag_size}
+			add {_nbt} to custom nbt of {_item}
+			set tool of {_p} to {_item}
+		if {_current_mag} <= 0:
+			weapon_reload({_p}, {_item}, {_nbt}, {_mag_size}, {_reload_time})
+			# Stop auto-fire during reload
+			delete {-kp::%{_p}'s uuid%::weapon::firing}
+			stop
+		subtract 1 from {_current_mag}
+		set int tag "TechCurrentMag" of {_nbt} to {_current_mag}
+		add {_nbt} to custom nbt of {_item}
+		set tool of {_p} to {_item}
+		
+		# Energy Cost Check
+	set {_cost} to int tag "TechCost" of {_nbt}
+	if {_cost} > 0:
+		set {_current_en} to en_get({_p})
+		if {_current_en} < {_cost}:
+			play sound "block.note_block.bass" with volume 0.5 with pitch 0.5 to {_p}
+			display_alert({_p}, "&cNO EN", 10)
+			delete {-kp::%{_p}'s uuid%::weapon::firing}
+			stop
+		en_consume({_p}, {_cost})
+		
+		# Fire
+	weapon_execute_fire({_p}, {_nbt})
+	
+	# Set Cooldown (short internal cooldown to prevent double fire)
+	set {-kp::%{_p}'s uuid%::weapon::cooldown} to true
+	wait 2 ticks
+	delete {-kp::%{_p}'s uuid%::weapon::cooldown}
+	
+	# -------------------------------------------------------------------------
+	# Function: weapon_reload
+	# Description: リロード処理
+	# -------------------------------------------------------------------------
+function weapon_reload(p: player, item: item, nbt: nbt compound, size: number, time: number):
+	set {-kp::%{_p}'s uuid%::weapon::reloading} to true
+	
+	# リロード表示をWeaponプレースホルダーに設定
+	set {-kp::%{_p}'s uuid%::weapon::reload_display} to "&eRELOADING..."
+	
+	play sound "block.piston.contract" with volume 0.5 with pitch 0.8 to {_p}
+	wait "%{_time}% ticks" parsed as timespan
+	
+	# リロード完了: 引数で渡されたアイテムのNBTを更新
+	set int tag "TechCurrentMag" of {_nbt} to {_size}
+	add {_nbt} to custom nbt of {_item}
+	
+	# 現在の手持ちアイテムを確認し、武器なら更新
+	set {_current_tool} to tool of {_p}
+	set {_current_nbt} to custom nbt of {_current_tool}
+	if string tag "TechType" of {_current_nbt} is "WEAPON":
+	# 現在手持ちの武器のNBTを更新
+		set int tag "TechCurrentMag" of {_current_nbt} to {_size}
+		add {_current_nbt} to custom nbt of {_current_tool}
+		set tool of {_p} to {_current_tool}
+		
+	play sound "block.piston.extend" with volume 0.5 with pitch 1.2 to {_p}
+	# 完了表示を短時間設定
+	set {-kp::%{_p}'s uuid%::weapon::reload_display} to "&aCOMPLETE"
+	wait 20 ticks
+	delete {-kp::%{_p}'s uuid%::weapon::reload_display}
+	delete {-kp::%{_p}'s uuid%::weapon::reloading}
+	
+	# -------------------------------------------------------------------------
+	# Function: weapon_explode
+	# Description: 非破壊範囲爆発（EXPLOSION属性用）
+	# -------------------------------------------------------------------------
+function weapon_explode(shooter: player, loc: location, atk: number, impact: number, power: number):
+# Radius based on power (1=3.5, 2=5, 3=6.5 blocks)
+	set {_radius} to 2 + ({_power} * 1.5)
+	
+	# === VISUAL EXPLOSION EFFECT (TNT-SCALE) ===
+	# Main explosion particle (large explosion like TNT/Creeper)
+	set {_explosion_count} to 5 * {_power}
+	draw {_explosion_count} of explosion at {_loc} with force
+	
+	# Draw explosion particles at multiple points for bigger effect
+	set {_offset} to {_radius} / 2
+	set {_neg_offset} to {_offset} * -1
+	draw 3 of explosion at {_loc} offset by vector({_offset}, 0, 0) with force
+	draw 3 of explosion at {_loc} offset by vector({_neg_offset}, 0, 0) with force
+	draw 3 of explosion at {_loc} offset by vector(0, 0, {_offset}) with force
+	draw 3 of explosion at {_loc} offset by vector(0, 0, {_neg_offset}) with force
+	draw 3 of explosion at {_loc} offset by vector(0, {_offset}, 0) with force
+	
+	# Lava particles scaled by power
+	set {_lava_count} to 20 * {_power}
+	set {_delta} to {_radius} / 2
+	draw {_lava_count} of lava at {_loc} with delta vector({_delta}, {_delta}, {_delta}) with extra 0.1 with force
+	
+	# Flame and smoke for dramatic effect
+	set {_flame_count} to 30 * {_power}
+	draw {_flame_count} of flame at {_loc} with delta vector({_delta}, {_delta} * 1.5, {_delta}) with extra 0.15 with force
+	draw {_flame_count} of large smoke at {_loc} with delta vector({_delta}, {_delta} * 2, {_delta}) with extra 0.1 with force
+	
+	# Explosion sound (TNT-like, loud)
+	set {_volume} to 1.5 + ({_power} * 0.5)
+	play sound "entity.generic.explode" with volume {_volume} with pitch 0.3 at {_loc}
+	
+	# Damage falloff multiplier based on distance
+	set {_base_dmg} to {_atk}
+	
+	# Get all entities in radius
+	set {_targets::*} to entities in radius {_radius} of {_loc}
+	loop {_targets::*}:
+		set {_t} to loop-value
+		# Skip shooter
+		if uuid of {_t} is uuid of {_shooter}:
+			continue
+			# Skip VFX entities
+		if scoreboard tags of {_t} contains "krz_vfx":
+			continue
+			# Skip non-living entities
+		set {_type_str} to "%type of {_t}%"
+		if {_type_str} contains "display":
+			continue
+		if {_type_str} contains "interaction":
+			continue
+		if {_type_str} contains "marker":
+			continue
+		if {_t} is not alive:
+			continue
+		if {_t} is a player:
+			if gamemode of {_t} is spectator:
+				continue
+				
+				# Calculate distance-based damage falloff
+		set {_dist} to distance between {_loc} and location of {_t}
+		set {_falloff} to 1 - ({_dist} / {_radius})
+		if {_falloff} < 0.2:
+			set {_falloff} to 0.2
+		set {_final_dmg} to {_base_dmg} * {_falloff}
+		
+		# Apply damage
+		vfx_hit({_t}, "EXPLOSION", "LAUNCHER", {_power})
+		damage_execute({_shooter}, {_t}, {_final_dmg}, {_impact}, "EXPLOSION")
+		
+		# -------------------------------------------------------------------------
+		# Function: weapon_execute_fire
+		# Description: 射撃実行 (RayCast + VFX)
+		# -------------------------------------------------------------------------
+function weapon_execute_fire(p: player, nbt: nbt compound):
+# Get weapon stats
+	set {_atk} to int tag "TechAtk" of {_nbt}
+	set {_impact} to int tag "TechImpact" of {_nbt}
+	set {_attr} to string tag "TechAttribute" of {_nbt}
+	set {_range} to int tag "TechRange" of {_nbt}
+	set {_class} to string tag "TechWeaponClass" of {_nbt}
+	set {_power} to int tag "TechPower" of {_nbt}
+	set {_projectile} to string tag "TechProjectile" of {_nbt}
+	
+	# Defaults
+	if {_range} is not set:
+		set {_range} to 50
+	if {_atk} is not set:
+		set {_atk} to 5
+	if {_class} is not set:
+		set {_class} to "RIFLE"
+	if {_power} is not set:
+		set {_power} to 1
+		
+		# === MISSILE PROJECTILE ===
+	if {_projectile} is "MISSILE":
+		missile_fire({_p}, {_atk}, {_impact}, {_power})
+		stop
+		
+		# Calculate Direction
+	set {_start_loc} to eye location of {_p}
+	set {_yaw} to yaw of {_p}
+	set {_pitch} to pitch of {_p}
+	set {_direction} to vector from yaw {_yaw} and pitch {_pitch}
+	
+	# FCS Correction (Smart Aim)
+	if fcs_is_locked({_p}) is true:
+		set {_target} to fcs_get_target({_p})
+		if {_target} is set:
+			if {_target} is alive:
+				set {_target_loc} to location 1 meter above location of {_target}
+				set {_direction} to vector from {_start_loc} to {_target_loc}
+	set {_direction} to normalized {_direction}
+	
+	# Fire VFX + SFX
+	vfx_fire({_p}, {_attr}, {_class}, {_power})
+	
+	# RayCast
+	set {_curr_loc} to {_start_loc}
+	set {_start_offset} to {_direction} * 0.5
+	set {_curr_loc} to {_curr_loc} offset by {_start_offset}
+	set {_step} to 0.5
+	set {_vector_step} to {_direction} * {_step}
+	set {_max_steps} to floor({_range} / {_step})
+	
+	set {_i} to 0
+	while {_i} < {_max_steps}:
+		add 1 to {_i}
+		set {_curr_loc} to {_curr_loc} offset by {_vector_step}
+		
+		# Tracer VFX
+		vfx_tracer({_curr_loc}, {_attr}, {_class}, {_power})
+		
+		# Skip collision check for first few steps (safe zone)
+		if {_i} <= 3:
+			continue
+			
+			# Block Collision Check
+		if block at {_curr_loc} is not air:
+			if block at {_curr_loc} is solid:
+				vfx_impact({_curr_loc}, {_attr}, {_class}, {_power})
+				# EXPLOSION: Area damage
+				if {_attr} is "EXPLOSION":
+					weapon_explode({_p}, {_curr_loc}, {_atk}, {_impact}, {_power})
+				stop
+				
+				# Entity Collision Check
+		set {_victims::*} to entities in radius 1.5 of {_curr_loc}
+		loop {_victims::*}:
+			set {_v} to loop-value
+			if uuid of {_v} is uuid of {_p}:
+				continue
+			if scoreboard tags of {_v} contains "krz_vfx":
+				continue
+			set {_type_str} to "%type of {_v}%"
+			if {_type_str} contains "display":
+				continue
+			if {_type_str} contains "interaction":
+				continue
+			if {_type_str} contains "marker":
+				continue
+			if {_v} is not alive:
+				continue
+			if {_v} is a player:
+				if gamemode of {_v} is spectator:
+					continue
+					# HIT!
+			vfx_hit({_v}, {_attr}, {_class}, {_power})
+			damage_execute({_p}, {_v}, {_atk}, {_impact}, {_attr})
+			# EXPLOSION: Also trigger area damage
+			if {_attr} is "EXPLOSION":
+				vfx_impact(location of {_v}, {_attr}, {_class}, {_power})
+				weapon_explode({_p}, location of {_v}, {_atk}, {_impact}, {_power})
+			stop
+			
+			# Wait every 3 steps for stable hit detection
+		if mod({_i}, 3) is 0:
+			wait 1 tick
+			

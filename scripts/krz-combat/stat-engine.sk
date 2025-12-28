@@ -1,0 +1,131 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Combat Stat Engine
+# Author: Antigravity Agent
+# Since: 2025-12-26
+# Description: 仮想スロットからステータスを計算・同期
+# -------------------------------------------------------------------------
+
+options:
+	PREFIX: "&b[StatEngine] &f"
+	
+	# 基礎ステータス (Suit非装備時)
+	BASE_EN_MAX: 100
+	BASE_STABILITY: 100
+	BASE_WEIGHT: 50
+	
+on load:
+	send "%{@PREFIX}%&aStatエンジン初期化完了 (Virtual Slots)" to console
+	
+on join:
+	wait 10 ticks
+	stat_sync(player)
+	
+	# -------------------------------------------------------------------------
+	# Function: stat_sync
+	# Description: 仮想スロットからステータスを計算・同期
+	# -------------------------------------------------------------------------
+function stat_sync(p: player):
+# 基礎値を設定
+	set {_en_max} to {@BASE_EN_MAX}
+	set {_stability} to {@BASE_STABILITY}
+	set {_weight} to {@BASE_WEIGHT}
+	set {_def} to 0
+	set {_hp_bonus} to 0
+	
+	# Suitスロットから属性を取得
+	set {_suit} to {-kp::%{_p}'s uuid%::equip::suit}
+	if {_suit} is set:
+		set {_nbt} to custom nbt of {_suit}
+		set {_tech_flag} to int tag "TechItem" of {_nbt}
+		if {_tech_flag} is 1:
+			set {_en_add} to int tag "TechEN" of {_nbt}
+			if {_en_add} is set:
+				add {_en_add} to {_en_max}
+			set {_stab_add} to int tag "TechStability" of {_nbt}
+			if {_stab_add} is set:
+				add {_stab_add} to {_stability}
+			set {_wt_add} to int tag "TechWeight" of {_nbt}
+			if {_wt_add} is set:
+				add {_wt_add} to {_weight}
+			set {_hp_add} to int tag "TechHP" of {_nbt}
+			if {_hp_add} is set:
+				add {_hp_add} to {_hp_bonus}
+			set {_def_add} to int tag "TechDef" of {_nbt}
+			if {_def_add} is set:
+				add {_def_add} to {_def}
+				
+				# アクセサリスロットからボーナスを取得 (1-6)
+	loop 6 times:
+		set {_acc} to {-kp::%{_p}'s uuid%::equip::acc::%loop-number%}
+		if {_acc} is set:
+			set {_acc_nbt} to custom nbt of {_acc}
+			set {_acc_flag} to int tag "TechItem" of {_acc_nbt}
+			if {_acc_flag} is 1:
+				set {_acc_en} to int tag "TechEN" of {_acc_nbt}
+				if {_acc_en} is set:
+					add {_acc_en} to {_en_max}
+				set {_acc_stab} to int tag "TechStability" of {_acc_nbt}
+				if {_acc_stab} is set:
+					add {_acc_stab} to {_stability}
+				set {_acc_def} to int tag "TechDef" of {_acc_nbt}
+				if {_acc_def} is set:
+					add {_acc_def} to {_def}
+					
+					# 変数に保存
+	set {-kp::%{_p}'s uuid%::stat::en_max} to {_en_max}
+	set {-kp::%{_p}'s uuid%::stat::stability} to {_stability}
+	set {-kp::%{_p}'s uuid%::stat::weight} to {_weight}
+	set {-kp::%{_p}'s uuid%::stat::def} to {_def}
+	set {-kp::%{_p}'s uuid%::stat::hp_bonus} to {_hp_bonus}
+	
+	# EN/Staggerシステムへ同期
+	set {-kp::%{_p}'s uuid%::en::max} to {_en_max}
+	set {-kp::%{_p}'s uuid%::stagger::max} to {_stability}
+	
+	# HP上限も調整 (バニラの最大HP = 20)
+	set max health of {_p} to 20 + {_hp_bonus}
+	
+	# -------------------------------------------------------------------------
+	# Function: stat_get_en_max
+	# -------------------------------------------------------------------------
+function stat_get_en_max(p: player) :: number:
+	if {-kp::%{_p}'s uuid%::stat::en_max} is not set:
+		stat_sync({_p})
+	return {-kp::%{_p}'s uuid%::stat::en_max}
+	
+	# -------------------------------------------------------------------------
+	# Function: stat_get_stability
+	# -------------------------------------------------------------------------
+function stat_get_stability(p: player) :: number:
+	if {-kp::%{_p}'s uuid%::stat::stability} is not set:
+		stat_sync({_p})
+	return {-kp::%{_p}'s uuid%::stat::stability}
+	
+	# -------------------------------------------------------------------------
+	# Function: stat_get_weight
+	# -------------------------------------------------------------------------
+function stat_get_weight(p: player) :: number:
+	if {-kp::%{_p}'s uuid%::stat::weight} is not set:
+		stat_sync({_p})
+	return {-kp::%{_p}'s uuid%::stat::weight}
+	
+	# -------------------------------------------------------------------------
+	# Function: stat_get_def
+	# -------------------------------------------------------------------------
+function stat_get_def(p: player) :: number:
+	if {-kp::%{_p}'s uuid%::stat::def} is not set:
+		stat_sync({_p})
+	return {-kp::%{_p}'s uuid%::stat::def}
+	
+	# -------------------------------------------------------------------------
+	# Command: /stat - ステータス確認
+	# -------------------------------------------------------------------------
+command /stat:
+	trigger:
+		stat_sync(player)
+		set {_en} to {-kp::%player's uuid%::stat::en_max}
+		set {_stab} to {-kp::%player's uuid%::stat::stability}
+		set {_wt} to {-kp::%player's uuid%::stat::weight}
+		set {_hp} to {-kp::%player's uuid%::stat::hp_bonus}
+		set {_def} to {-kp::%player's uuid%::stat::def}
+		send "&b[Stat Engine] &fEN: %{_en}% | Stability: %{_stab}% | Weight: %{_wt}% | DEF: %{_def}% | HP+: %{_hp}%" to player

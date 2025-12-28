@@ -1,0 +1,99 @@
+# -------------------------------------------------------------------------
+# Module: Krz-Core Tech Suit Items
+# Author: Antigravity Agent
+# Since: 2025-12-26
+# Description: Tech Suit（Frames）のアイテム定義とコマンド (1.21.4 Component対応)
+# -------------------------------------------------------------------------
+
+options:
+	PREFIX: "&6[TechSuit] &f"
+	
+on load:
+	send "%{@PREFIX}%&aTech Suitアイテム登録完了" to console
+	
+	# -------------------------------------------------------------------------
+	# Function: suit_create_standard
+	# Description: Standard Frameを作成
+	# CMD: 4001 | EN+50 | Stability+50 | Weight+50
+	# -------------------------------------------------------------------------
+function suit_create_standard() :: item:
+	set {_item} to diamond chestplate
+	set name of {_item} to "&b&lStandard Frame"
+	set lore of {_item} to "&7━━━━━━━━━━━━━━━━", "&7汎用型フレーム。バランスの取れた性能。", "&r", "&8[Tech Suit]", "&r", "&7▸ &fEN &b+50", "&7▸ &fStability &a+50", "&7▸ &fWeight &c+50", "&r", "&7━━━━━━━━━━━━━━━━"
+	
+	# 1.21.4 Component: minecraft:custom_data
+	set int tag "TechItem" of custom nbt of {_item} to 1
+	set int tag "TechEN" of custom nbt of {_item} to 50
+	set int tag "TechStability" of custom nbt of {_item} to 50
+	set int tag "TechWeight" of custom nbt of {_item} to 50
+	set int tag "TechHP" of custom nbt of {_item} to 0
+	set int tag "TechAccSlots" of custom nbt of {_item} to 3
+	
+	# CustomModelData
+	set custom model data of {_item} to 4001
+	
+	return {_item}
+	
+	# -------------------------------------------------------------------------
+	# Function: suit_create_heavy
+	# Description: Heavy Frameを作成
+	# CMD: 4101 | EN+30 | Stability+150 | Weight+120 | HP+4
+	# -------------------------------------------------------------------------
+function suit_create_heavy() :: item:
+	set {_item} to netherite chestplate
+	set name of {_item} to "&8&lHeavy Frame"
+	set lore of {_item} to "&7━━━━━━━━━━━━━━━━", "&7重装型フレーム。高耐久だが機動力低下。", "&r", "&8[Tech Suit]", "&r", "&7▸ &fEN &b+30", "&7▸ &fStability &a+150", "&7▸ &fWeight &c+120", "&7▸ &fHP &d+4", "&r", "&7━━━━━━━━━━━━━━━━"
+	
+	# 1.21.4 Component: minecraft:custom_data
+	set int tag "TechItem" of custom nbt of {_item} to 1
+	set int tag "TechEN" of custom nbt of {_item} to 30
+	set int tag "TechStability" of custom nbt of {_item} to 150
+	set int tag "TechWeight" of custom nbt of {_item} to 120
+	set int tag "TechHP" of custom nbt of {_item} to 4
+	set int tag "TechAccSlots" of custom nbt of {_item} to 4
+	
+	# CustomModelData
+	set custom model data of {_item} to 4101
+	
+	return {_item}
+	
+	# -------------------------------------------------------------------------
+	# Function: suit_create_light
+	# Description: Light Frameを作成
+	# CMD: 4201 | EN+80 | Stability+30 | Weight+20
+	# -------------------------------------------------------------------------
+function suit_create_light() :: item:
+	set {_item} to chainmail chestplate
+	set name of {_item} to "&e&lLight Frame"
+	set lore of {_item} to "&7━━━━━━━━━━━━━━━━", "&7軽量型フレーム。高機動だが脆い。", "&r", "&8[Tech Suit]", "&r", "&7▸ &fEN &b+80", "&7▸ &fStability &a+30", "&7▸ &fWeight &c+20", "&r", "&7━━━━━━━━━━━━━━━━"
+	
+	# 1.21.4 Component: minecraft:custom_data
+	set int tag "TechItem" of custom nbt of {_item} to 1
+	set int tag "TechEN" of custom nbt of {_item} to 80
+	set int tag "TechStability" of custom nbt of {_item} to 30
+	set int tag "TechWeight" of custom nbt of {_item} to 20
+	set int tag "TechHP" of custom nbt of {_item} to 0
+	set int tag "TechAccSlots" of custom nbt of {_item} to 5
+	
+	# CustomModelData
+	set custom model data of {_item} to 4201
+	
+	return {_item}
+	
+	# -------------------------------------------------------------------------
+	# Command: /techsuit - Tech Suit付与コマンド
+	# -------------------------------------------------------------------------
+command /techsuit <text>:
+	permission: op
+	trigger:
+		if arg-1 is "standard":
+			give suit_create_standard() to player
+			send "%{@PREFIX}%&aStandard Frame を付与しました" to player
+		else if arg-1 is "heavy":
+			give suit_create_heavy() to player
+			send "%{@PREFIX}%&aHeavy Frame を付与しました" to player
+		else if arg-1 is "light":
+			give suit_create_light() to player
+			send "%{@PREFIX}%&aLight Frame を付与しました" to player
+		else:
+			send "%{@PREFIX}%&c使用法: /techsuit <standard|heavy|light>" to player
